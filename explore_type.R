@@ -2,11 +2,17 @@
 library(tidyr)
 library(dplyr)
 library(ggplot2)
+library(ggcorrplot)
 library(gridExtra)
+library(emmeans)
+library(corrplot)
+library(caret)
+library(randomForest)
+library(MASS)
 
-# reading in the different datasets (would need to be simple only...)
+# reading in the different datasets. NB...not using "simple" versions for now...Reconsider later.
+
 # set95c <- readRDS("/Users/HansPeter/Dropbox/Statistics/UCTDataScience/Thesis/amps_1995/set95c.rds")
-
 set02c <- readRDS("/Users/hans-peterbakker/Dropbox/Statistics/UCTDataScience/Thesis/amps_2002/set02c.rds")
 set05c <- readRDS("/Users/hans-peterbakker/Dropbox/Statistics/UCTDataScience/Thesis/amps_2005/set05c.rds")
 set08c <- readRDS("/Users/hans-peterbakker/Dropbox/Statistics/UCTDataScience/Thesis/amps_2008/set08c.rds")
@@ -14,25 +20,251 @@ set10c <- readRDS("/Users/hans-peterbakker/Dropbox/Statistics/UCTDataScience/The
 set12c <- readRDS("/Users/hans-peterbakker/Dropbox/Statistics/UCTDataScience/Thesis/amps_2012/set12c.rds")
 set14c <- readRDS("/Users/hans-peterbakker/Dropbox/Statistics/UCTDataScience/Thesis/amps_2014/set14c.rds")
 
-# EXPLORATION OF DESCRIPTIVE STUFF BY YEAR
-# try to create single frame:
-# add year to first two frames:
-ex_set <- function(set, year) {
-  set[,c(1,3:9,15)] %>%
+# create a pooled set
+# function to isolate relevant variables and add year
+add_year <- function(set, year) {
+  set[,c('qn',
+         'cluster',
+         'age',
+         'age_actual',
+         'sex',
+         'edu',
+         'hh_inc',
+         'race',
+         'lsm',
+         'newspapers',
+         'magazines',
+         'radio',
+         'tv',
+         'internet',
+         'all'
+  )] %>%
     mutate(year = year)
 }
 
-big_set <- rbind.data.frame(
-  ex_set(set02c, 2002),
-  ex_set(set05c, 2005),
-  ex_set(set08c, 2008),
-  ex_set(set10c, 2010),
-  ex_set(set12c, 2012),
-  ex_set(set14c, 2014)
+# create pooled set
+pooled_set <- rbind.data.frame(
+  add_year(set02c, 2002),
+  add_year(set05c, 2005),
+  add_year(set08c, 2008),
+  add_year(set10c, 2010),
+  add_year(set12c, 2012),
+  add_year(set14c, 2014)
 )
 
-# some exploratory descriptive stats plots:
-expl_demogs <- function(set, category) {
+# standardise
+pooled_set[,10:14] <- scale(pooled_set[,10:14])
+
+# some correlations:
+corrplot02 <- ggcorrplot(cor(set02c[,c("newspapers","magazines","radio", "tv", "internet", "all")]),
+                         hc.order = FALSE,
+                         type = "lower",
+                         lab = TRUE,
+                         title = "2002",
+                         legend.title = "",
+                         ggtheme = ggplot2::theme_minimal,
+                         lab_size = 3,
+                         tl.cex = 10,
+                         show.legend = FALSE)
+corrplot05 <- ggcorrplot(cor(set05c[,c("newspapers","magazines","radio", "tv", "internet", "all")]),
+                         hc.order = FALSE,
+                         type = "lower",
+                         lab = TRUE,
+                         title = "2005",
+                         legend.title = "",
+                         ggtheme = ggplot2::theme_minimal,
+                         lab_size = 3,
+                         tl.cex = 10,
+                         show.legend = FALSE)
+corrplot08 <- ggcorrplot(cor(set08c[,c("newspapers","magazines","radio", "tv", "internet", "all")]),
+                         hc.order = FALSE,
+                         type = "lower",
+                         lab = TRUE,
+                         title = "2008",
+                         legend.title = "",
+                         ggtheme = ggplot2::theme_minimal,
+                         lab_size = 3,
+                         tl.cex = 10,
+                         show.legend = FALSE)
+corrplot10 <- ggcorrplot(cor(set10c[,c("newspapers","magazines","radio", "tv", "internet", "all")]),
+                         hc.order = FALSE,
+                         type = "lower",
+                         lab = TRUE,
+                         title = "2010",
+                         legend.title = "",
+                         ggtheme = ggplot2::theme_minimal,
+                         lab_size = 3,
+                         tl.cex = 10,
+                         show.legend = FALSE)
+corrplot12 <- ggcorrplot(cor(set12c[,c("newspapers","magazines","radio", "tv", "internet", "all")]),
+                         hc.order = FALSE,
+                         type = "lower",
+                         lab = TRUE,
+                         title = "2012",
+                         legend.title = "",
+                         ggtheme = ggplot2::theme_minimal,
+                         lab_size = 3,
+                         tl.cex = 10,
+                         show.legend = FALSE)
+corrplot14 <- ggcorrplot(cor(set14c[,c("newspapers","magazines","radio", "tv", "internet", "all")]),
+                         hc.order = FALSE,
+                         type = "lower",
+                         lab = TRUE,
+                         title = "2014",
+                         legend.title = "",
+                         ggtheme = ggplot2::theme_minimal,
+                         lab_size = 3,
+                         tl.cex = 10,
+                         show.legend = FALSE)
+
+jpeg("corrplots_by_year.jpeg")
+grid.arrange(corrplot02,
+             corrplot05,
+             corrplot08,
+             corrplot10,
+             corrplot12,
+             corrplot14,
+             ncol = 2)
+dev.off()
+jpeg("corrplot_pooled.jpeg")
+ggcorrplot(cor(pooled_set[,c("newspapers","magazines","radio", "tv", "internet", "all")]),
+           hc.order = FALSE,
+           type = "lower",
+           lab = TRUE,
+           title = "Pooled",
+           legend.title = "",
+           ggtheme = ggplot2::theme_minimal,
+           lab_size = 3,
+           tl.cex = 14,
+           show.legend = TRUE)
+dev.off()
+
+
+# Clustering
+## consider kmeans
+wss <- vector()
+set.seed(123)
+for(k in c(1,2,3,4,5,6,7,8,9,10)) {
+  temp <- kmeans(pooled_set[,c("newspapers","magazines","radio", "tv", "internet", "all")],
+                 centers = k,
+                 nstart = 5,
+                 iter.max = 30)
+  wss <- append(wss,temp$tot.withinss)
+}
+
+jpeg('kmeans_pooled.jpeg')
+plot(c(1,2,3,4,5,6,7,8,9,10), wss, type = "b", xlab = "k-values", ylab = "total within sum of squares" )
+dev.off()
+
+set.seed(123)
+kmeans_pooled <- kmeans(pooled_set[,c("newspapers","magazines","radio", "tv", "internet","all")],
+                   centers = 4,
+                   nstart = 5,
+                   iter.max = 100)
+
+table(kmeans_pooled$cluster)
+
+
+# add cluster variable to pooled set...
+pooled_set_c <- pooled_set %>%
+  mutate(cluster = factor(kmeans_pooled$cluster)) %>%
+  dplyr::select(qn, cluster, everything())
+
+# save it
+saveRDS(pooled_set_c, "pooled_set_c.rds")
+
+# read back
+pooled_set_c <- readRDS("pooled_set_c.rds")
+
+# multi-dimensional scaling
+
+# 1st create a subset of 10 000 cases to ensure easier running
+set.seed(56)
+sub_pooled <- pooled_set_c[sample(nrow(pooled_set_c), size = 10000),]
+
+# distance matrix and MDS
+sub_pooled_dist <- dist(sub_pooled[,c("newspapers","magazines","radio", "tv", "internet", "all")])
+# mds_pooled <- cmdscale(sub_pooled_dist)
+# 
+# saveRDS(mds_pooled, "mds_pooled.rds")
+mds_pooled <- readRDS("mds_pooled.rds")
+
+jpeg('kmeans_pooled_MDS.jpeg')
+plot(mds_pooled, col = as.numeric(sub_pooled$cluster) + 1, pch = 19, ylab = "", xlab = "")
+dev.off()
+
+# predictions to test clusters...
+# create training and test sets:
+set.seed(56)
+ind_train <- createDataPartition(pooled_set_c$cluster, p = 0.7, list = FALSE)
+training <- pooled_set_c[ind_train,]
+testing <- pooled_set_c[-ind_train,]
+
+# A simple random forest:
+forest_pooled_type <- randomForest(cluster ~ newspapers
+                              + tv
+                              + radio
+                              + magazines
+                              + internet,
+                              data = training )
+
+pred_forest_pooled_type <- predict(forest_pooled_type, newdata = testing)
+
+confusionMatrix(pred_forest_pooled_type, testing$cluster) 
+
+# with linear discriminant analysis. Although given accuracy of forest,  no real need.
+set.seed(56)
+lda_pooled <- lda(cluster ~ newspapers
+             + tv
+             + radio
+             + magazines
+             + internet,
+             data = training)
+
+pred_lda_pooled <- predict(lda_pooled , newdata = testing)
+confusionMatrix(pred_lda_pooled$class, testing$cluster) # collinearity meant took out 
+
+# boxplots of clusters and media types
+# define a plotting function
+boxplot_clusters <- function(set,type) {
+  ggplot(set, aes_string("cluster", type, fill = "cluster")) +
+    geom_boxplot() +
+    guides(fill = FALSE) +
+    labs(title = type)
+  
+}
+
+jpeg('typeBoxPlots_pooled.jpeg', quality = 100)
+grid.arrange(boxplot_clusters(pooled_set_c, type = "all"),
+             boxplot_clusters(pooled_set_c, type = "newspapers"),
+             boxplot_clusters(pooled_set_c, type = "magazines"),
+             boxplot_clusters(pooled_set_c, type = "radio"),
+             boxplot_clusters(pooled_set_c, type = "tv"),
+             boxplot_clusters(pooled_set_c, type = "internet"),
+             ncol=3, nrow = 2)
+dev.off()
+
+# make sense of demographics
+
+# set factor labels (NB double check levels)
+pooled_set_c$age <- factor(pooled_set_c$age, labels = c("15-24","25-44", "45-54","55+"), ordered = TRUE)
+pooled_set_c$race <- factor(pooled_set_c$race,labels = c("black", "coloured", "indian", "white"), ordered = FALSE)
+pooled_set_c$edu <- factor(pooled_set_c$edu, labels = c("<matric", "matric",">matric" ) ,ordered = FALSE)
+pooled_set_c$lsm <- factor(pooled_set_c$lsm, labels = c("LSM1-2", "LSM3-4", "LSM5-6", "LSM7-8", "LSM9-10"), ordered = FALSE)
+pooled_set_c$sex <- factor(pooled_set_c$sex, labels = c("male", "female"), ordered = FALSE)
+pooled_set_c$hh_inc <- factor(pooled_set_c$hh_inc, labels = c("<R2500","R2500-R6999","R7000-R11999",">=R12000"), ordered = FALSE)
+pooled_set_c$cluster <- factor(pooled_set_c$cluster,  labels = c("heavy", "internet", "medium", "light"), ordered = FALSE)
+pooled_set_c$year <- factor(pooled_set_c$year, ordered = FALSE)
+
+
+# size of each cluster
+ggplot(data = pooled_set_c, aes(x = cluster, fill = cluster)) +
+  geom_bar(stat = "count") +
+  guides(fill = FALSE)
+
+# demographics by cluster
+
+bars_by_cluster <- function(set, category) { # category:one of race, edu, age, lsm, sex, hh_inc
   if(category == "race") {
     level = c("black", "coloured", "indian", "white")
     title = "Population Group"
@@ -58,426 +290,272 @@ expl_demogs <- function(set, category) {
     title = "Household Income"
   }
   
-  ggplot(data = set) +
-    aes(x = factor(year)) +
-    aes_string(fill = category) +
+  ggplot(data = set10c, aes_string(x = "cluster", fill = category)) +
     geom_bar(stat = "count", position = position_dodge()) +
-    scale_fill_discrete(labels = level) +
-    labs(title = title, x = "year") +
+    scale_fill_discrete(labels=level) +
+    labs(title = title) +
     guides(fill=guide_legend(title=NULL)) +
-    theme(plot.title = element_text(size = 18),
-          axis.text.y = element_text(size = 12),
-          axis.text.x = element_text(size = 12)) 
+    scale_x_discrete(labels = c("heavy","internet","medium","light"))
 }
 
-# jpeg('exDemogPlots.jpeg', quality = 100, type = "cairo")
-# grid.arrange(expl_demogs(big_set, "sex"),
-#              expl_demogs(big_set, "age"),
-#              expl_demogs(big_set, "race"),
-#              expl_demogs(big_set, "edu"),
-#              expl_demogs(big_set, "hh_inc"),
-#              expl_demogs(big_set, "lsm"),
-#              ncol=2, nrow = 3)
-# dev.off()
+# to get percent of sample by cluster
+table(pooled_set_c$cluster)/nrow(pooled_set_c)
 
-jpeg('exDemogPlots_sex.jpeg', quality = 100, type = "cairo")
-expl_demogs(big_set, "sex")
-dev.off()
-jpeg('exDemogPlots_age.jpeg', quality = 100, type = "cairo")
-expl_demogs(big_set, "age")
-dev.off()
-jpeg('exDemogPlots_race.jpeg', quality = 100, type = "cairo")
-expl_demogs(big_set, "race")
-dev.off()
-jpeg('exDemogPlots_edu.jpeg', quality = 100, type = "cairo")
-expl_demogs(big_set, "edu")
-dev.off()
-jpeg('exDemogPlots_hh_inc.jpeg', quality = 100, type = "cairo")
-expl_demogs(big_set, "hh_inc")
-dev.off()
-jpeg('exDemogPlots_lsm.jpeg', quality = 100, type = "cairo")
-expl_demogs(big_set, "lsm")
+# considering cluster by year...
+cluster_by_year <- pooled_set_c %>%
+  group_by(year) %>%
+  count(cluster) %>%
+  mutate(total = sum(n))
+
+jpeg('cluster_by_year.jpeg')
+ggplot(cluster_by_year) +
+  aes(x = year, y = n, fill = cluster, label = paste0(round(100*(n/total)),"%") )+
+  geom_bar(stat = 'identity') +
+  geom_text(position = "stack", size = 3) +
+  labs(y = "count")
 dev.off()
 
-## preparing dataset for LDA
-# function to create frames (for all except '95 since doesnt have internet)
-# single level
-frames <- function(set, category) {
-  require(dplyr)
+# consider some linear models full models, all interactions with year
+mod_radio <- lm(radio ~ 
+                  age +
+                  sex +
+                  edu +
+                  hh_inc +
+                  race +
+                  lsm +
+                  year +
+                  year * age +
+                  year * sex +
+                  year * edu +
+                  year * hh_inc +
+                  year * race +
+                  year * lsm,
+                data = big_set)
+mod_tv <- lm(tv ~ 
+                  age +
+                  sex +
+                  edu +
+                  hh_inc +
+                  race +
+                  lsm +
+                  year +
+                  year * age +
+                  year * sex +
+                  year * edu +
+                  year * hh_inc +
+                  year * race +
+                  year * lsm,
+                data = big_set)
+mod_newspapers <- lm(newspapers ~ 
+                  age +
+                  sex +
+                  edu +
+                  hh_inc +
+                  race +
+                  lsm +
+                  year +
+                  year * age +
+                  year * sex +
+                  year * edu +
+                  year * hh_inc +
+                  year * race +
+                  year * lsm,
+                data = big_set)
+mod_magazines <- lm(magazines ~ 
+                      age +
+                      sex +
+                      edu +
+                      hh_inc +
+                      race +
+                      lsm +
+                      year +
+                      year * age +
+                      year * sex +
+                      year * edu +
+                      year * hh_inc +
+                      year * race +
+                      year * lsm,
+                    data = big_set)
+mod_internet <- lm(internet ~ 
+                      age +
+                      sex +
+                      edu +
+                      hh_inc +
+                      race +
+                      lsm +
+                      year +
+                      year * age +
+                      year * sex +
+                      year * edu +
+                      year * hh_inc +
+                      year * race +
+                      year * lsm,
+                    data = big_set)
+
+
+# setting up marginal means objects
+
+# creating dataset for plotting
+# function:
+fr_set <- function(model, spec) {
   
-  # set factor labels (NB double check levels)
-  set$age <- factor(set$age, labels = c("15-24","25-44", "45-54","55+"), ordered = TRUE)
-  set$race <- factor(set$race,labels = c("black", "coloured", "indian", "white"), ordered = TRUE)
-  set$edu <- factor(set$edu, labels = c("<matric", "matric",">matric" ) ,ordered = TRUE)
-  set$lsm <- factor(set$lsm, labels = c("LSM1-2", "LSM3-4", "LSM5-6", "LSM7-8", "LSM9-10"), ordered = TRUE)
-  set$sex <- factor(set$sex, labels = c("male", "female"), ordered = TRUE)
-  set$hh_inc <- factor(set$hh_inc, labels = c("<R2500","R2500-R6999","R7000-R11999",">=R12000"), ordered = TRUE)
-  set$cluster <- factor(set$cluster, labels = c("c1", "c2", "c3", "c4"), ordered = TRUE)
+  # link marginal means package
+  require(emmeans)
   
+  # create emmeans object
+  temp1 <- emmeans(model, specs = spec, by = "year")
   
-  set %>%
-    group_by_(category = category) %>%
-    summarise(news = mean(newspapers),
-              mags = mean(magazines),
-              tvs = mean(tv),
-              radios = mean(radio),
-              internets = mean(internet),
-              alls = mean(all),
-              up_all = mean(all) + (2 * sd(all)/sqrt(length(all))),
-              low_all = mean(all) - (2 * sd(all)/sqrt(length(all))),
-              up_newspapers = mean(newspapers) + (2 * sd(newspapers)/sqrt(length(newspapers))),
-              low_newspapers = mean(newspapers) - (2 * sd(newspapers)/sqrt(length(newspapers))),
-              up_magazines = mean(magazines) + (2 * sd(magazines)/sqrt(length(magazines))),
-              low_magazines = mean(magazines) - (2 * sd(magazines)/sqrt(length(magazines))),
-              up_tv = mean(tv) + (2 * sd(tv)/sqrt(length(tv))),
-              low_tv = mean(tv) - (2 * sd(tv)/sqrt(length(tv))),
-              up_radio = mean(radio) + (2 * sd(radio)/sqrt(length(radio))),
-              low_radio = mean(radio) - (2 * sd(radio)/sqrt(length(radio))),
-              up_internet = mean(internet) + (2 * sd(internet)/sqrt(length(internet))),
-              low_internet = mean(internet) - (2 * sd(internet)/sqrt(length(internet)))
-    )
+  # create subsettable summary object
+  temp2 <- summary(temp1)
   
-}
-
-# # create a vector to use for internet '95:
-# # for now, simply zero
-# set95c <- set95c %>%
-#         mutate(internet = 0)
-# 
-# # also, adjusted function to exclude lsm
-# frame_95 <- rbind.data.frame(frames(set95c,"sex"),
-#                              frames(set95c,"age"),
-#                              frames(set95c,"edu"),
-#                              frames(set95c,"race"),
-#                              frames(set95c, "hh_inc"),
-#                              frames(set95c, "cluster")) %>% # dont have lsm...
-#         mutate(year = 1995) %>%
-#         select(category, year, everything())
-
-# function to bind the frames by year
-frame_bind <- function(set, year) {
-  rbind.data.frame(frames(set,"sex"),
-                   frames(set,"age"),
-                   frames(set,"edu"),
-                   frames(set,"race"),
-                   frames(set, "hh_inc"),
-                   frames(set,"lsm"),
-                   frames(set, "cluster")) %>%
-    mutate(year = year) %>%
-    select(category, year, everything())
+  # create output set
+  cbind.data.frame(category = temp2[[1]],
+                   year = temp2[[2]],
+                   means = temp2[[3]],
+                   lower = temp2[[6]],
+                   upper = temp2[[7]])
   
-}
-
-frame_02 <- frame_bind(set02c, 2002)
-frame_05 <- frame_bind(set05c, 2005)
-frame_08 <- frame_bind(set08c, 2008)
-frame_10 <- frame_bind(set10c, 2010)
-frame_12 <- frame_bind(set12c, 2012)
-frame_14 <- frame_bind(set14c, 2014)
-
-# putting it together
-type_frame <- rbind.data.frame(#frame_95,
-  frame_02,
-  frame_05,
-  frame_08,
-  frame_10,
-  frame_12,
-  frame_14)
-
-saveRDS(type_frame, "type_frame.rds")
-
-# type_frame_typeGathered <- gather(type_frame, key = "type", value = "engagement", news, mags, tvs, radios, internets, alls)
-
-# # change category ordered to unorders
-# type_frame$category <- factor(type_frame$category, ordered = FALSE)
-
-# EXPLORING
-
-# considering plots of all media on demographic categories
-# defining a function
-all_plots <- function(data, title = "All Media Types") {
-  ggplot(data = data, title = title) +
-    geom_line(aes(year, news, group = category, colour = "newspaper")) +
-    geom_line(aes(year, mags, group = category, colour = "magazine")) +
-    geom_line(aes(year, radios, group = category, colour = "radio")) +
-    geom_line(aes(year, tvs, group = category, colour = "tv")) +
-    geom_line(aes(year, internets, group = category, colour = "internet")) +
-    geom_line(aes(year, alls, group = category, colour = "all")) +
-    scale_colour_discrete(name="Media") +
-    facet_grid(. ~ category) +
-    theme(axis.text.x = element_text(size = 6)) +
-    labs(y = "engagement", title = title)
   
 }
 
+# joining into single frame
+pool_means_radio <- rbind(fr_set(mod_radio, spec = "sex"),
+                          fr_set(mod_radio, spec = "age"),
+                          fr_set(mod_radio, spec = "race"),
+                          fr_set(mod_radio, spec = "edu"),
+                          fr_set(mod_radio, spec = "hh_inc"),
+                          fr_set(mod_radio, spec = "lsm"))
+pool_means_tv <- rbind(fr_set(mod_tv, spec = "sex"),
+                          fr_set(mod_tv, spec = "age"),
+                          fr_set(mod_tv, spec = "race"),
+                          fr_set(mod_tv, spec = "edu"),
+                          fr_set(mod_tv, spec = "hh_inc"),
+                          fr_set(mod_tv, spec = "lsm"))
+pool_means_magazines <- rbind(fr_set(mod_magazines, spec = "sex"),
+                          fr_set(mod_magazines, spec = "age"),
+                          fr_set(mod_magazines, spec = "race"),
+                          fr_set(mod_magazines, spec = "edu"),
+                          fr_set(mod_magazines, spec = "hh_inc"),
+                          fr_set(mod_magazines, spec = "lsm"))
+pool_means_newspapers <- rbind(fr_set(mod_newspapers, spec = "sex"),
+                          fr_set(mod_newspapers, spec = "age"),
+                          fr_set(mod_newspapers, spec = "race"),
+                          fr_set(mod_newspapers, spec = "edu"),
+                          fr_set(mod_newspapers, spec = "hh_inc"),
+                          fr_set(mod_newspapers, spec = "lsm"))
+pool_means_internet <- rbind(fr_set(mod_internet, spec = "sex"),
+                          fr_set(mod_internet, spec = "age"),
+                          fr_set(mod_internet, spec = "race"),
+                          fr_set(mod_internet, spec = "edu"),
+                          fr_set(mod_internet, spec = "hh_inc"),
+                          fr_set(mod_internet, spec = "lsm"))
+
+save(pool_means_internet,
+     pool_means_magazines,
+     pool_means_newspapers,
+     pool_means_tv,
+     pool_means_radio, file = "pool_means.RData")
+
+load("pool_means.RData")
+
+# doing some plots:
 vector_row1 <- c("male", "female","15-24","25-44", "45-54","55+","black", "coloured", "indian", "white")
 vector_row2 <- c("<matric", "matric",">matric", "<R2500","R2500-R6999","R7000-R11999",">=R12000", "LSM1-2", "LSM3-4", "LSM5-6", "LSM7-8", "LSM9-10")
-p_up <- all_plots(type_frame[which(type_frame$category %in% vector_row1),])
-p_down <- all_plots(type_frame[which(type_frame$category %in% vector_row2),])
-
-jpeg("all_plotsA.jpeg", quality = 100)
-p_up
-dev.off()
-jpeg("all_plotsB.jpeg", quality = 100)
-p_down
-dev.off()
-
-jpeg("all_plots.jpeg", quality = 100)
-grid.arrange(p_up, p_down, nrow = 2)
-dev.off()
-
-# function to plot details eith error bars: medium per category:
-plot_medium_by_category <- function(data, medium, category) {# category: one of age, race, income, sex, education, lsm, cluster
-  # medium: one of: newspapers, magazines, radio, tv, internet
-  age_levels <- c("15-24","25-44", "45-54","55+" )
-  race_levels <- c("black", "coloured", "indian", "white")
-  inc_levels <- c("<R2500","R2500-R6999","R7000-R11999",">=R12000")
-  sex_levels <- c("male", "female")
-  edu_levels <- c("<matric", "matric",">matric")
-  lsm_levels <- c("LSM1-2", "LSM3-4", "LSM5-6", "LSM7-8", "LSM9-10")
-  cluster_levels <- c("c1", "c2", "c3", "c4")
-  
-  if(category == "age") {
-    temp_levels <- age_levels
-  }
-  if(category == "race") {
-    temp_levels <- race_levels
-  }
-  if(category == "income") {
-    temp_levels <- inc_levels
-  }
-  if(category == "sex") {
-    temp_levels <- sex_levels
-  }
-  if(category == "education") {
-    temp_levels <- edu_levels
-  }
-  if(category == "lsm") {
-    temp_levels <- lsm_levels
-  }
-  if(category == "cluster") {
-    temp_levels <- cluster_levels
-  }
-  
-  temp_frame <- data %>%
-    filter(category %in% temp_levels)
-  
-  if(medium == "newspapers") {
-    a <- "news"
-    b <- "low_newspapers"
-    c <- "up_newspapers"
-    d <- "newspapers"
-    e <- paste("Newspapers and ", category)
-  }
-  if(medium == "magazines") {
-    a <- "mags"
-    b <- "low_magazines"
-    c <- "up_magazines"
-    d <- "magazines"
-    e <- paste("Magazines and ", category)
-  }
-  if(medium == "tv") {
-    a <- "tvs"
-    b <- "low_tv"
-    c <- "up_tv"
-    d <- "tv"
-    e <- paste("Television and ", category)
-  }
-  if(medium == "radio") {
-    a <- "radios"
-    b <- "low_radio"
-    c <- "up_radio"
-    d <- "radio"
-    e <- paste("Radio and ", category)
-  }
-  if(medium == "internet") {
-    a <- "internets"
-    b <- "low_internet"
-    c <- "up_internet"
-    d <- "internet"
-    e <- paste("Internet and ", category)
-  }
-  
-  
-  ggplot(temp_frame, aes_string("year", a, group = "category")) +
-    geom_point( color = "blue", size = 1, fill = "white", alpha = 0.5) +
-    geom_line(size = 0.2) +
-    facet_grid(.~ category) + theme(axis.text.x = element_text(size = 6)) +
-    geom_errorbar(aes_string(ymin = b, ymax = c),size = 0.3, width = 0.4, alpha = 0.5) +
-    labs(y = d, title = e)
-}
-
-p_news_age <- plot_medium_by_category(type_frame, "newspapers", "age") # etc..any combination...
-p_radio_income <- plot_medium_by_category(type_frame, "radio", "income") # etc..any combination...
-p_tv_race <- plot_medium_by_category(type_frame, "tv", "race")
-p_internet_lsm <- plot_medium_by_category(type_frame, "internet", "lsm")
-p_internet_age <- plot_medium_by_category(type_frame, "internet", "age")
-p_mags_edu <- plot_medium_by_category(type_frame, "magazines", "education")
-
-jpeg("medium_category.jpeg", quality = 100)
-grid.arrange(p_news_age,
-             p_radio_income,
-             p_tv_race,
-             p_internet_lsm,
-             p_internet_age,
-             p_mags_edu, nrow = 3)
-dev.off()
-# etc...
-
-# MODELING
-
-## RADIO
-radio_grouped <- groupedData(radios ~ year | category, data = type_frame)
-# plot(radio_grouped) # check
-radio_list <- lmList(radios ~ I(year - mean(year)) | category, data = radio_grouped)
-# plot(intervals(radio_list))
-radio_lme <- lme(radio_list)
-# summary(radio_lme)
-
-plot(radio_lme)
-summary(radio_lme)
-random.effects(radio_lme)
-intervals(radio_lme)
-
-
-## NEWSPAPERS
-news_grouped <- groupedData(news ~ year | category, data = type_frame)
-# plot(news_grouped) # check
-news_list <- lmList(news ~ I(year - mean(year)) | category, data = news_grouped)
-# plot(intervals(news_list))
-news_lme <- lme(news_list)
-# summary(news_lme)
-
-## MAGAZINES
-mags_grouped <- groupedData(mags ~ year | category, data = type_frame)
-# plot(mags_grouped) # check
-mags_list <- lmList(mags ~ I(year - mean(year)) | category, data = mags_grouped)
-# plot(intervals(mags_list))
-mags_lme <- lme(mags_list)
-# summary(mags_lme)
-
-## TV
-tvs_grouped <- groupedData(tvs ~ year | category, data = type_frame)
-# plot(tvs_grouped) # check
-tvs_list <- lmList(tvs ~ I(year - mean(year)) | category, data = tvs_grouped)
-# plot(intervals(tvs_list))
-tvs_lme <- lme(tvs_list)
-# summary(tvs_lme)
-
-## INTERNET
-internet_grouped <- groupedData(internets ~ year | category, data = type_frame)
-# plot(internet_grouped) # check
-internet_list <- lmList(internets ~ I(year - mean(year)) | category, data = internet_grouped)
-# plot(intervals(internet_list))
-internet_lme <- lme(internet_list)
-# summary(internet_lme)
-
-# Own plots of Medium and Categories with Fitted Values
-# add model predicted values to data frame
-type_frame_preds <- type_frame %>%
-  mutate(preds_radio = as.vector(fitted(radio_lme))) %>%
-  mutate(preds_news = as.vector(fitted(news_lme))) %>%
-  mutate(preds_mags = as.vector(fitted(mags_lme))) %>%
-  mutate(preds_tv = as.vector(fitted(tvs_lme))) %>%
-  mutate(preds_internet = as.vector(fitted(internet_lme)))
 
 # function for plotting fitted models
 plot_fitted <- function(data, medium) { # medium: one of: newspapers, magazines, radio, tv, internet
   
   if(medium == "newspapers") {
-    a <- "news"
-    b <- "preds_news"
-    c <- "up_newspapers"
-    d <- "low_newspapers"
-    e <- "newspapers"
-    f <- "Newspapers with Fitted Values"
+    a <- "means"
+    c <- "upper"
+    d <- "lower"
+    e <- "engagement"
+    f <- "Newspapers"
   }
   if(medium == "magazines") {
-    a <- "mags"
-    b <- "preds_mags"
-    c <- "up_magazines"
-    d <- "low_magazines"
-    e <- "magazines"
-    f <- "Magazines with Fitted Values"
+    a <- "means"
+    c <- "upper"
+    d <- "lower"
+    e <- "engagement"
+    f <- "Magazines"
   }
   if(medium == "tv") {
-    a <- "tvs"
-    b <- "preds_tv"
-    c <- "up_tv"
-    d <- "low_tv"
-    e <- "tv"
-    f <- "TV with Fitted Values"
+    a <- "means"
+    c <- "upper"
+    d <- "lower"
+    e <- "engagement"
+    f <- "TV"
   }
   if(medium == "radio") {
-    a <- "radios"
-    b <- "preds_radio"
-    c <- "up_radio"
-    d <- "low_radio"
-    e <- "radio"
-    f <- "Radio with Fitted Values"
+    a <- "means"
+    c <- "upper"
+    d <- "lower"
+    e <- "engagement"
+    f <- "Radio"
   }
   if(medium == "internet") {
-    a <- "internets"
-    b <- "preds_internet"
-    c <- "up_internet"
-    d <- "low_internet"
-    e <- "internet"
-    f <- "Internet with Fitted Values"
+    a <- "means"
+    c <- "upper"
+    d <- "lower"
+    e <- "engagement"
+    f <- "Internet"
   }
   
   #plot
   ggplot(data = data, aes_string("year", a, group = "category")) +
     geom_point(color = "blue", size = 1, fill = "white", alpha = 0.5) +
     geom_line(size = 0.2) +
-    geom_line(aes_string("year", b, group = "category"), colour = "red", size = 0.3, linetype = 2 ) +
     facet_grid(.~ category) + theme(axis.text.x = element_text(size = 6)) +
     geom_errorbar(aes_string(ymax = c, ymin = d), size = 0.3, width = 0.4, alpha = 0.5) +
-    labs(y = e, title = f)
+    labs(y = e, title = f) +
+    coord_cartesian(ylim=c(-2, 0.8)) + 
+    scale_y_continuous(breaks=seq(-2, 0.8, 0.5))
   
 }
 
+
 ## RADIO
-pf_radio_up <- plot_fitted(data = type_frame_preds[which(type_frame$category %in% vector_row1),],
+pf_radio_up <- plot_fitted(data = pool_means_radio[which(pool_means_radio$category %in% vector_row1),],
                            medium = "radio")
-pf_radio_down <- plot_fitted(data = type_frame_preds[which(type_frame$category %in% vector_row2),],
+pf_radio_down <- plot_fitted(data = pool_means_radio[which(pool_means_radio$category %in% vector_row2),],
                              medium = "radio")
-jpeg("radio_fitted.jpeg", quality = 100)
+jpeg("radio_pooled_means.jpeg", quality = 100)
 grid.arrange(pf_radio_up, pf_radio_down, nrow = 2)
 dev.off()
 
-## TV
-pf_tv_up <- plot_fitted(data = type_frame_preds[which(type_frame$category %in% vector_row1),],
-                        medium = "tv")
-pf_tv_down <- plot_fitted(data = type_frame_preds[which(type_frame$category %in% vector_row2),],
-                          medium = "tv")
-jpeg("tv_fitted.jpeg", quality = 100)
-grid.arrange(pf_tv_up, pf_tv_down, nrow = 2)
-dev.off()
-
 ## NEWSPAPERS
-pf_newspapers_up <- plot_fitted(data = type_frame_preds[which(type_frame$category %in% vector_row1),],
-                                medium = "newspapers")
-pf_newspapers_down <- plot_fitted(data = type_frame_preds[which(type_frame$category %in% vector_row2),],
-                                  medium = "newspapers")
-jpeg("newspapers_fitted.jpeg", quality = 100)
+pf_newspapers_up <- plot_fitted(data = pool_means_newspapers[which(pool_means_newspapers$category %in% vector_row1),],
+                           medium = "newspapers")
+pf_newspapers_down <- plot_fitted(data = pool_means_newspapers[which(pool_means_newspapers$category %in% vector_row2),],
+                             medium = "newspapers")
+jpeg("newspapers_pooled_means.jpeg", quality = 100)
 grid.arrange(pf_newspapers_up, pf_newspapers_down, nrow = 2)
 dev.off()
 
 ## MAGAZINES
-pf_magazines_up <- plot_fitted(data = type_frame_preds[which(type_frame$category %in% vector_row1),],
-                               medium = "magazines")
-pf_magazines_down <- plot_fitted(data = type_frame_preds[which(type_frame$category %in% vector_row2),],
-                                 medium = "magazines")
-jpeg("magazines_fitted.jpeg", quality = 100)
+pf_magazines_up <- plot_fitted(data = pool_means_magazines[which(pool_means_magazines$category %in% vector_row1),],
+                                medium = "magazines")
+pf_magazines_down <- plot_fitted(data = pool_means_magazines[which(pool_means_magazines$category %in% vector_row2),],
+                                  medium = "magazines")
+jpeg("magazines_pooled_means.jpeg", quality = 100)
 grid.arrange(pf_magazines_up, pf_magazines_down, nrow = 2)
 dev.off()
 
+## TV
+pf_tv_up <- plot_fitted(data = pool_means_tv[which(pool_means_tv$category %in% vector_row1),],
+                                medium = "tv")
+pf_tv_down <- plot_fitted(data = pool_means_tv[which(pool_means_tv$category %in% vector_row2),],
+                                  medium = "tv")
+jpeg("tv_pooled_means.jpeg", quality = 100)
+grid.arrange(pf_tv_up, pf_tv_down, nrow = 2)
+dev.off()
+
 ## INTERNET
-pf_internet_up <- plot_fitted(data = type_frame_preds[which(type_frame$category %in% vector_row1),],
-                              medium = "internet")
-pf_internet_down <- plot_fitted(data = type_frame_preds[which(type_frame$category %in% vector_row2),],
+pf_internet_up <- plot_fitted(data = pool_means_internet[which(pool_means_internet$category %in% vector_row1),],
                                 medium = "internet")
-jpeg("internet_fitted.jpeg", quality = 100)
+pf_internet_down <- plot_fitted(data = pool_means_internet[which(pool_means_internet$category %in% vector_row2),],
+                                  medium = "internet")
+jpeg("internet_pooled_means.jpeg", quality = 100)
 grid.arrange(pf_internet_up, pf_internet_down, nrow = 2)
 dev.off()
 
