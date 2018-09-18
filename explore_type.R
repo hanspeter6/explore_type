@@ -1,3 +1,7 @@
+# still want to do:
+#   check for other interaction effects.
+#   work more with emmeans plotting functions... useful (check consider_emm.R) where ran single lm function and then some nice plots ...
+# 
 # load packages
 library(tidyr)
 library(dplyr)
@@ -126,6 +130,7 @@ grid.arrange(corrplot02,
              corrplot14,
              ncol = 2)
 dev.off()
+
 jpeg("corrplot_pooled.jpeg")
 ggcorrplot(cor(pooled_set[,c("newspapers","magazines","radio", "tv", "internet", "all")]),
            hc.order = FALSE,
@@ -330,7 +335,7 @@ mod_radio <- lm(radio ~
                   year * hh_inc +
                   year * race +
                   year * lsm,
-                data = big_set)
+                data = pooled_set_c)
 mod_tv <- lm(tv ~ 
                   age +
                   sex +
@@ -345,7 +350,7 @@ mod_tv <- lm(tv ~
                   year * hh_inc +
                   year * race +
                   year * lsm,
-                data = big_set)
+                data = pooled_set_c)
 mod_newspapers <- lm(newspapers ~ 
                   age +
                   sex +
@@ -360,7 +365,7 @@ mod_newspapers <- lm(newspapers ~
                   year * hh_inc +
                   year * race +
                   year * lsm,
-                data = big_set)
+                data = pooled_set_c)
 mod_magazines <- lm(magazines ~ 
                       age +
                       sex +
@@ -375,7 +380,7 @@ mod_magazines <- lm(magazines ~
                       year * hh_inc +
                       year * race +
                       year * lsm,
-                    data = big_set)
+                    data = pooled_set_c)
 mod_internet <- lm(internet ~ 
                       age +
                       sex +
@@ -390,7 +395,7 @@ mod_internet <- lm(internet ~
                       year * hh_inc +
                       year * race +
                       year * lsm,
-                    data = big_set)
+                    data = pooled_set_c)
 
 
 # setting up marginal means objects
@@ -512,7 +517,6 @@ plot_fitted <- function(data, medium) { # medium: one of: newspapers, magazines,
     scale_y_continuous(breaks=seq(-2, 0.8, 0.5))
   
 }
-
 
 ## RADIO
 pf_radio_up <- plot_fitted(data = pool_means_radio[which(pool_means_radio$category %in% vector_row1),],
