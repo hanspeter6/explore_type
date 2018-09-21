@@ -271,6 +271,10 @@ bars_by_cluster <- function(set, category) { # category:one of race, edu, age, l
     scale_x_discrete(labels = c("heavy","internet","medium","light"))
 }
 
+bars_by_cluster(set_simple_print_std_c, "race")
+bars_by_cluster(set_simple_print_std_c,"hh_inc")
+bars_by_cluster(set_simple_print_std_c,"age")
+
 # to get percent of sample by cluster
 table(set_simple_print_std_c$cluster)/nrow(set_simple_print_std_c)
 
@@ -450,11 +454,11 @@ pool_means_internet <- rbind(fr_set(mod_internet, spec = "sex"),
                              fr_set(mod_internet, spec = "hh_inc"),
                              fr_set(mod_internet, spec = "lsm"))
 
-# save(pool_means_internet,
-#      pool_means_magazines,
-#      pool_means_newspapers,
-#      pool_means_tv,
-#      pool_means_radio, file = "pool_means.RData")
+save(pool_means_internet,
+     pool_means_magazines,
+     pool_means_newspapers,
+     pool_means_tv,
+     pool_means_radio, file = "pool_means.RData")
 
 load("pool_means.RData")
 
@@ -479,6 +483,42 @@ one_frame3 <- one_frame2[,-c(3,4,5,6)]
 types_set <- one_frame3 %>%
   mutate(upper = c(one_frame$prop.upper, one_frame$equal.upper)) %>%
   mutate(lower = c(one_frame$prop.lower, one_frame$equal.lower))
+
+# trying all plots here.
+
+# changing the dataset to consider only "proportional" and only "mean" values and then go wide with factor again
+types_wide <- types_set %>%
+  filter(weights == "proportional") %>%
+  dplyr::select(category, year, factor, mean) %>%
+  spread(key = factor, value = mean)
+
+# defining a function
+
+
+all_plots <- function(data, title = "All Media Types") {
+  ggplot(data = data, title = title) +
+    geom_line(aes(year, newspapers, group = category, colour = "newspaper")) +
+    geom_line(aes(year, magazines, group = category, colour = "magazine")) +
+    geom_line(aes(year, radio, group = category, colour = "radio")) +
+    geom_line(aes(year, tv, group = category, colour = "tv")) +
+    geom_line(aes(year, internet, group = category, colour = "internet")) +
+    # geom_line(aes(year, alls, group = category, colour = "all")) +
+    scale_colour_discrete(name="Media") +
+    facet_grid(. ~ category) +
+    theme(axis.text.x = element_text(size = 6)) +
+    labs(y = "engagement", title = title)
+  
+}
+
+vector_row1 <- c("male", "female","15-24","25-44", "45-54","55+","black", "coloured", "indian", "white")
+vector_row2 <- c("<matric", "matric",">matric", "<R2500","R2500-R6999","R7000-R11999",">=R12000", "LSM1-2", "LSM3-4", "LSM5-6", "LSM7-8", "LSM9-10")
+p_up <- all_plots(types_wide[which(types_wide$category %in% vector_row1),])
+p_down <- all_plots(types_wide[which(types_wide$category %in% vector_row2),])
+
+all_plots(types_wide)
+
+grid.arrange(p_up, p_down, nrow = 2)
+
 
 # function for plotting fitted models
 plot_types <- function(dataset, type) { # factor: one of...
