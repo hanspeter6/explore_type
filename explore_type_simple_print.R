@@ -588,95 +588,165 @@ all_plots(types_wide)
 
 grid.arrange(p_up, p_down, nrow = 2)
 
-
 # function for plotting fitted models
-plot_types <- function(dataset, type) { # factor: one of...
+plot_type_wraps <- function(dataset, type) { # factor: one of...
   
   # making sure I have the packages
   require(tidyverse)
   require(gridExtra)
-  
-  # define upper and lower plots
-  row1 <- c("male", "female","15-24","25-44", "45-54","55+","black", "coloured", "indian", "white")
-  row2 <- c("<matric", "matric",">matric", "<R5000","R5000-R10999","R11000-R19999","R20000+", "LSM1-2", "LSM3-4", "LSM5-6", "LSM7-8", "LSM9-10")
+  require(ggplot2)
   
   # subset the data by factor
   factor_data <- dataset %>% filter(factor == type)
   
-  # row one plot
-  plot_row1 <- ggplot(data = factor_data[which(factor_data$category %in% row1),], aes(x = year, y = mean, group = interaction(category,weights), col = weights)) +
-    geom_line(size = 0.5) +
-    facet_grid(.~ category) +
-    geom_errorbar(aes(ymax = upper, ymin = lower, colour = weights), size = 0.3, width = 0.4, alpha = 0.5) +
-    theme(axis.text.x = element_text(size = 6)) +
-    labs(y = "engagement") +
-    theme(legend.position = "bottom")
-  
-  # row two plot
-  plot_row2 <-  ggplot(data = factor_data[which(factor_data$category %in% row2),], aes(x = year, y = mean, group = interaction(category,weights), col = weights)) +
-    geom_line(size = 0.5) +
-    facet_grid(.~ category) +
-    geom_errorbar(aes(ymax = upper, ymin = lower, colour = weights), size = 0.3, width = 0.4, alpha = 0.5) +
-    theme(axis.text.x = element_text(size = 6)) +
-    labs(y = "engagement")
-  
-  #extract legend
-  ##https://github.com/hadley/ggplot2/wiki/Share-a-legend-between-two-ggplot2-graphs
-  g_legend <- function(a.gplot) {
-    tmp <- ggplot_gtable(ggplot_build(a.gplot))
-    leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
-    legend <- tmp$grobs[[leg]]
-    return(legend)}
-  
-  mylegend<-g_legend(plot_row1)
-  
-  grid.arrange(arrangeGrob(plot_row1 + theme(legend.position="none"),
-                           plot_row2 + theme(legend.position="none")),
-               top = paste0("Estimated Marginal Means: ", "'", type, "'"),
-               mylegend,
-               nrow=2,
-               heights=c(10, 1))
-  
-  # coord_cartesian(ylim=c(-0.5, 0.5)) + 
-  # scale_y_continuous(breaks=seq(-0.5, 0.5, 0.2))
+  # facet plot
+  ggplot(data = factor_data, aes(x = year, y = mean, group = interaction(category,weights), col = weights)) +
+    geom_line(size = 0.8) +
+    facet_wrap(.~ category, ncol = 6) +
+    geom_errorbar(aes(ymax = upper, ymin = lower, colour = weights), size = 0.6, width = 0.2, alpha = 0.8) +
+    theme(axis.text.x = element_text(size = 12, angle = 45 ),
+          axis.text.y = element_text(size = 12),
+          strip.text = element_text(size = 16, margin = ggplot2::margin(0,0,0,0, unit = "cm")),
+          axis.title.y = element_text(size = 22),
+          axis.title.x = element_text(size = 22),
+          axis.ticks = element_line(size = 1),
+          plot.margin = ggplot2::margin(0.5,0.5,0.5,0.5, unit = 'cm'),
+          axis.ticks.length = unit(0.2, "cm"),
+          panel.spacing = unit(5, 'pt'),
+          panel.grid.minor = element_line(size = 0.5),
+          panel.grid.major = element_line(size = 0.8),
+          legend.position = c(0.85,0.07),
+          legend.text = element_text(size = 16, margin = ggplot2::margin(0,0,0,0, unit = "cm")),
+          legend.title = element_text(size = 20),
+          legend.key.height = unit(2, "cm"),
+          legend.key.size = unit(2, "cm")
+    ) +
+    scale_x_discrete(labels = c("'02","'08","'10","'12", "'14")) +
+    coord_cartesian(ylim = c(-1, 1.2)) +
+    labs(x = "years (2002 - 2014)", y = "engagement")
 }
 
-jpeg("radio_emm.jpeg", quality = 100)
-plot_types(types_set, "radio")
+# send plots to files
+pdf(file = "radio_emm.pdf", width = 12, height = 17, family = "Helvetica") # defaults to 7 x 7 inches
+plot_type_wraps(types_set, "radio")
 dev.off()
 
-jpeg("newspapers_emm.jpeg", quality = 100)
-plot_types(types_set, "newspapers")
+pdf(file = "newspapers_emm.pdf", width = 12, height = 17, family = "Helvetica") # defaults to 7 x 7 inches
+plot_type_wraps(types_set, "newspapers")
 dev.off()
 
-jpeg("magazines_emm.jpeg", quality = 100)
-plot_types(types_set, "magazines")
+pdf(file = "magazines_emm.pdf", width = 12, height = 17, family = "Helvetica") # defaults to 7 x 7 inches
+plot_type_wraps(types_set, "magazines")
 dev.off()
 
-jpeg("tv_emm.jpeg", quality = 100)
-plot_types(types_set, "tv")
+pdf(file = "tv_emm.pdf", width = 12, height = 17, family = "Helvetica") # defaults to 7 x 7 inches
+plot_type_wraps(types_set, "tv")
 dev.off()
 
-jpeg("internet_emm.jpeg", quality = 100)
-plot_types(types_set, "internet")
+pdf(file = "internet_emm.pdf", width = 12, height = 17, family = "Helvetica") # defaults to 7 x 7 inches
+plot_type_wraps(types_set, "internet")
 dev.off()
 
 
+# 
+# 
+# # print plots to files
+# jpeg("radio_emm.jpeg", res = 300)
+# plot_types_wraps(types_set, "radio")
+# dev.off()
+# 
+# jpeg("newspapers_emm.jpeg", res =300)
+# plot_types_wraps(types_set, "newspapers")
+# dev.off()
+# 
+# jpeg("magazines_emm.jpeg", res = 300)
+# plot_types_wraps(types_set, "magazines")
+# dev.off()
+# 
+# jpeg("tv_emm.jpeg", res = 300)
+# plot_types_wraps(types_set, "tv")
+# dev.off()
+# 
+# jpeg("internet_emm.jpeg", res = 300)
+# plot_types_wraps(types_set, "internet")
+# dev.off()
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# PREVIOUS ATTEMPTS
+# # function for plotting fitted models
+# plot_types <- function(dataset, type) { # factor: one of...
+#   
+#   # making sure I have the packages
+#   require(tidyverse)
+#   require(gridExtra)
+#   
+#   # define upper middele and lower plots
+#   row1 <- c("male", "female","15-24","25-44", "45-54","55+")
+#   row2 <- c("black", "coloured", "indian", "white", "<matric", "matric",">matric")
+#   row3 <- c( "<R5000","R5000-R10999","R11000-R19999","R20000+", "LSM1-2", "LSM3-4", "LSM5-6", "LSM7-8", "LSM9-10")
+#   
+#   
+#   # subset the data by factor
+#   factor_data <- dataset %>% filter(factor == type)
+#   
+#   # row one plot
+#   plot_row1 <- ggplot(data = factor_data[which(factor_data$category %in% row1),], aes(x = year, y = mean, group = interaction(category,weights), col = weights)) +
+#     geom_line(size = 0.3) +
+#     facet_grid(.~ category) +
+#     geom_errorbar(aes(ymax = upper, ymin = lower, colour = weights), size = 0.2, width = 0.3, alpha = 1) +
+#     theme(axis.text.x = element_text(size = 3, angle = 45 ),
+#           axis.title.x = element_blank(),
+#           axis.text.y = element_text(size = 3),
+#           strip.text.x = element_text(size = 4)) +
+#     scale_x_discrete(labels = c("'02","'08","'10","'12", "'14")) +
+#     coord_cartesian(ylim = c(-1, 1.2)) +
+#     labs(y = "", size = 2, x = "") +
+#     theme(legend.position = "bottom")
+#   
+#   # row two plot
+#   plot_row2 <-  ggplot(data = factor_data[which(factor_data$category %in% row2),], aes(x = year, y = mean, group = interaction(category,weights), col = weights)) +
+#     geom_line(size = 0.5) +
+#     facet_grid(.~ category) +
+#     geom_errorbar(aes(ymax = upper, ymin = lower, colour = weights), size = 0.3, width = 0.3, alpha = 1) +
+#     theme(axis.text.x = element_text(size = 6, angle = 45 ),
+#           axis.text.y = element_text(size = 6)) +
+#     scale_x_discrete(labels = c("'02","'08","'10","'12", "'14")) +
+#     coord_cartesian(ylim = c(-1, 1.2)) +
+#     labs(y = "engagement", size = 2, x = "")
+#   
+#   # row three plot
+#   plot_row3 <-  ggplot(data = factor_data[which(factor_data$category %in% row3),], aes(x = year, y = mean, group = interaction(category,weights), col = weights)) +
+#     geom_line(size = 0.5) +
+#     facet_grid(.~ category) +
+#     geom_errorbar(aes(ymax = upper, ymin = lower, colour = weights), size = 0.3, width = 0.3, alpha = 1) +
+#     theme(axis.text.x = element_text(size = 6, angle = 45 ),
+#           axis.text.y = element_text(size = 6),
+#           strip.text.x = element_text(size = 8)) +
+#     scale_x_discrete(labels = c("'02","'08","'10","'12", "'14")) +
+#     coord_cartesian(ylim = c(-1, 1.2)) +
+#     labs(y = "", size = 2)
+#   
+#   #extract legend
+#   ##https://github.com/hadley/ggplot2/wiki/Share-a-legend-between-two-ggplot2-graphs
+#   g_legend <- function(a.gplot) {
+#     tmp <- ggplot_gtable(ggplot_build(a.gplot))
+#     leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+#     legend <- tmp$grobs[[leg]]
+#     return(legend)}
+#   
+#   mylegend<-g_legend(plot_row1)
+#   
+#   grid.arrange(arrangeGrob(plot_row1 + theme(legend.position="none"),
+#                            plot_row2 + theme(legend.position="none"),
+#                            plot_row3 + theme(legend.position = "none")),
+#                # top = paste0("Estimated Marginal Means: ", "'", type, "'"),
+#                mylegend,
+#                nrow=2,
+#                heights=c(10, 1))
+#   
+#   # coord_cartesian(ylim=c(-0.5, 0.5)) + 
+#   # scale_y_continuous(breaks=seq(-0.5, 0.5, 0.2))
+# }
+# 
 # 
 # # doing some plots:
 # vector_row1 <- c("male", "female","15-24","25-44", "45-54","55+","black", "coloured", "indian", "white")
