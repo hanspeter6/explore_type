@@ -1,3 +1,6 @@
+## code to process type analysis
+
+# load packages
 library(dplyr)
 library(corrplot)
 library(ggcorrplot)
@@ -8,7 +11,6 @@ library(MASS)
 library(tidyr)
 library(emmeans)
 library(formula.tools)
-
 
 # simple_print
 set02_simple_print <- readRDS("/Users/hans-peterbakker/Dropbox/Statistics/UCTDataScience/Thesis/amps_2002/set02_simple_print.rds")
@@ -35,95 +37,57 @@ set_simple_print <- rbind.data.frame(add_year(set02_simple_print[,!names(set02_s
                                          add_year(set10_simple_print[,!names(set10_simple_print) %in% c("lifestages", "lifestyle", "attitudes")], 2010),
                                          add_year(set12_simple_print[,!names(set12_simple_print) %in% c("lifestages", "lifestyle", "attitudes")], 2012),
                                          add_year(set14_simple_print[,!names(set14_simple_print) %in% c("lifestages", "lifestyle", "attitudes")], 2014))
-# some correlations:
-corrplot02 <- ggcorrplot(cor(set02_simple_print[,c("newspapers","magazines","radio", "tv", "internet", "all")]),
-                         hc.order = FALSE,
-                         method = "square",
-                         type = "full",
-                         lab = TRUE,
-                         title = "2002",
-                         legend.title = "",
-                         ggtheme = ggplot2::theme_minimal,
-                         lab_size = 2,
-                         tl.cex = 6,
-                         show.legend = FALSE)
-corrplot08 <- ggcorrplot(cor(set08_simple_print[,c("newspapers","magazines","radio", "tv", "internet", "all")]),
-                         hc.order = FALSE,
-                         method = "square",
-                         type = "full",
-                         lab = TRUE,
-                         title = "2008",
-                         legend.title = "",
-                         ggtheme = ggplot2::theme_minimal,
-                         lab_size = 2,
-                         tl.cex = 6,
-                         show.legend = FALSE)
-corrplot10 <- ggcorrplot(cor(set10_simple_print[,c("newspapers","magazines","radio", "tv", "internet", "all")]),
-                         hc.order = FALSE,
-                         method = "square",
-                         type = "full",
-                         lab = TRUE,
-                         title = "2010",
-                         legend.title = "",
-                         ggtheme = ggplot2::theme_minimal,
-                         lab_size = 2,
-                         tl.cex = 6,
-                         show.legend = FALSE)
-corrplot12 <- ggcorrplot(cor(set12_simple_print[,c("newspapers","magazines","radio", "tv", "internet", "all")]),
-                         hc.order = FALSE,
-                         method = "square",
-                         type = "full",
-                         lab = TRUE,
-                         title = "2012",
-                         legend.title = "",
-                         ggtheme = ggplot2::theme_minimal,
-                         lab_size = 2,
-                         tl.cex = 6,
-                         show.legend = FALSE)
-corrplot14 <- ggcorrplot(cor(set14_simple_print[,c("newspapers","magazines","radio", "tv", "internet", "all")]),
-                         hc.order = FALSE,
-                         method = "square",
-                         type = "full",
-                         lab = TRUE,
-                         title = "2014",
-                         legend.title = "",
-                         ggtheme = ggplot2::theme_minimal,
-                         lab_size = 2,
-                         tl.cex = 6,
-                         show.legend = FALSE)
-corrplot_all <- ggcorrplot(cor(set_simple_print[,c("newspapers","magazines","radio", "tv", "internet", "all")]),
-                           hc.order = FALSE,
-                           method = "square",
-                           type = "full",
-                           lab = TRUE,
-                           title = "POOLED",
-                           legend.title = "",
-                           ggtheme = ggplot2::theme_minimal,
-                           lab_size = 2,
-                           tl.cex = 6,
-                           show.legend = FALSE)
+## Correlations
+# function to use for plotting
+corrPlot <- function(set, title) {
+  ggcorrplot(cor(set),
+             hc.order = FALSE,
+             method = "square",
+             type = "full",
+             lab = TRUE,
+             title = title,
+             colors = c("snow1", "skyblue1", "royalblue"),
+             legend.title = "",
+             ggtheme = ggplot2::theme_grey,
+             lab_size = 5,
+             tl.cex = 14,
+             show.legend = FALSE) +
+    theme(plot.title = element_text(size = 18))
+  
+}
 
+# running the plotting function
+c02 <- corrPlot(set02_simple_print[,c("newspapers","magazines","radio", "tv", "internet", "all")],
+                title = "2002")
+c08 <- corrPlot(set08_simple_print[,c("newspapers","magazines","radio", "tv", "internet", "all")],
+                title = "2008")
+c10 <- corrPlot(set10_simple_print[,c("newspapers","magazines","radio", "tv", "internet", "all")],
+                title = "2010")
+c12 <- corrPlot(set12_simple_print[,c("newspapers","magazines","radio", "tv", "internet", "all")],
+                title = "2012")
+c14 <- corrPlot(set14_simple_print[,c("newspapers","magazines","radio", "tv", "internet", "all")],
+                title = "2014")
+c_all <- corrPlot(set_simple_print[,c("newspapers","magazines","radio", "tv", "internet", "all")],
+                title = "Full Dataset")
 
-jpeg("corrplots1.jpeg", quality = 100)
-grid.arrange(corrplot02,
-             corrplot08,
-             corrplot10,
-             ncol = 3)
-dev.off()
-
-jpeg("corrplots2.jpeg",quality = 100)
-grid.arrange(corrplot12,
-             corrplot14,
-             corrplot_all,
-             ncol = 3)
+# print to file for publication
+pdf(file = "corrplots1.pdf", width = 17, height = 12, family = "Helvetica") # defaults to 7 x 7 inches
+grid.arrange(c02,
+             c08,
+             c10,
+             c12,
+             c14,
+             c_all,
+             ncol = 3, nrow = 2)
 dev.off()
 
 
 # standardising the media type variables (including "all")
 set_simple_print_std <- cbind.data.frame(set_simple_print[,1:9], scale(set_simple_print[,c("newspapers","magazines","radio", "tv", "internet", "all")]))
 
-# Clustering
-## consider kmeans
+### Clustering
+
+## consider how many centers to use
 wss <- vector()
 set.seed(123)
 for(k in c(1,2,3,4,5,6,7,8,9,10)) {
@@ -134,42 +98,96 @@ for(k in c(1,2,3,4,5,6,7,8,9,10)) {
   wss <- append(wss,temp$tot.withinss)
 }
 
-jpeg('kmeans_pooled.jpeg')
+# plotting screeplot for myself
 plot(c(1,2,3,4,5,6,7,8,9,10), wss, type = "b", xlab = "k-values", ylab = "total within sum of squares" )
-dev.off()
 
+# run kmeans on 4 clusters
 set.seed(123)
 kmeans_pooled <- kmeans(set_simple_print_std[,c("newspapers","magazines","radio", "tv", "internet","all")],
                         centers = 4,
                         nstart = 5,
                         iter.max = 100)
 
+# check cluster balances
 table(kmeans_pooled$cluster)
-
 
 # add cluster variable to pooled set...
 set_simple_print_std_c <- set_simple_print_std %>%
   mutate(cluster = factor(kmeans_pooled$cluster)) %>%
   dplyr::select(qn, cluster, everything())
 
-# multi-dimensional scaling
+# rename levels for cluster to keep aligned with write-up:
+set_simple_print_std_c$cluster <- ifelse(set_simple_print_std_c$cluster == "1", "7", set_simple_print_std_c$cluster)
+set_simple_print_std_c$cluster <- ifelse(set_simple_print_std_c$cluster == "2", "9", set_simple_print_std_c$cluster)
+set_simple_print_std_c$cluster <- ifelse(set_simple_print_std_c$cluster == "3", "8", set_simple_print_std_c$cluster)
+set_simple_print_std_c$cluster <- ifelse(set_simple_print_std_c$cluster == "4", "6", set_simple_print_std_c$cluster)
+set_simple_print_std_c$cluster <- as.factor(as.numeric(set_simple_print_std_c$cluster) - 5)
 
-# 1st create a subset of 10 000 cases to ensure easier running
-set.seed(56)
-sub_pooled <- set_simple_print_std_c[sample(nrow(set_simple_print_std_c), size = 10000),]
+# set factor labels
+set_simple_print_std_c$age <- factor(set_simple_print_std_c$age, labels = c("15-24","25-44", "45-54","55+"), ordered = FALSE)
+set_simple_print_std_c$race <- factor(set_simple_print_std_c$race,labels = c("black", "coloured", "indian", "white"), ordered = FALSE)
+set_simple_print_std_c$edu <- factor(set_simple_print_std_c$edu, labels = c("<matric", "matric",">matric" ) ,ordered = FALSE)
+set_simple_print_std_c$lsm <- factor(set_simple_print_std_c$lsm, labels = c("LSM1-2", "LSM3-4", "LSM5-6", "LSM7-8", "LSM9-10"), ordered = FALSE)
+set_simple_print_std_c$sex <- factor(set_simple_print_std_c$sex, labels = c("male", "female"), ordered = FALSE)
+set_simple_print_std_c$hh_inc <- factor(set_simple_print_std_c$hh_inc, labels = c("<R5000","R5000-R10999","R11000-R19999","R20000+"), ordered = FALSE)
+set_simple_print_std_c$cluster <- factor(set_simple_print_std_c$cluster,  labels = c("heavy", "internet", "medium", "light"), ordered = FALSE)
+set_simple_print_std_c$year <- factor(set_simple_print_std_c$year, ordered = FALSE)
+
+# save it
+saveRDS(set_simple_print_std_c, "set_simple_print_std_c.rds")
+
+# read back
+set_simple_print_std_c <- readRDS("set_simple_print_std_c.rds")
+
+## multi-dimensional scaling
+
+# # 1st create a subset of 10 000 cases to ensure easier running
+# set.seed(56)
+# sub_pooled <- set_simple_print_std_c[sample(nrow(set_simple_print_std_c), size = 10000),]
 # 
 # # distance matrix and MDS
 # sub_pooled_dist <- dist(sub_pooled[,c("newspapers","magazines","radio", "tv", "internet", "all")])
 # 
 # # doing the multidimensional scaling on the sample set of 10 000 cases
 # mds_pooled <- cmdscale(sub_pooled_dist)
-
+# 
+# # save the MDS object to avoid running every time.
 # saveRDS(mds_pooled, "mds_pooled.rds")
 
+# read back MDS ojbect (takes time to run...)
 mds_pooled <- readRDS("mds_pooled.rds")
 
-jpeg('kmeans_pooled_MDS.jpeg')
-plot(mds_pooled, col = as.numeric(sub_pooled$cluster) + 1, pch = 19, ylab = "", xlab = "")
+# plot for scree
+screedata <- cbind.data.frame(k = c(1,2,3,4,5,6,7,8,9,10), wss = wss)
+screeplot <- ggplot(screedata, aes(x = k, y = wss)) +
+  geom_line() + geom_point() +
+  scale_x_continuous("k = number of clusters", labels = as.character(c(1,2,3,4,5,6,7,8,9,10)), breaks = c(1,2,3,4,5,6,7,8,9,10)) +
+  labs(y = "total within sum of squares", title = "Within Sum of Squares for Different Values of k" ) +
+  theme(plot.title = element_text(size = 24),
+        text = element_text(size = 18),
+        axis.text.y = element_blank(),
+        axis.text.x = element_text(size = 12))
+
+# plot for clusters
+mdsForggplot <- cbind.data.frame(mds_pooled, col = as.factor((as.numeric(sub_pooled$cluster))))
+names(mdsForggplot) <- c("x", "y", "col")
+mds_plot <- ggplot(mdsForggplot, aes(x = x, y = y, col = col)) +
+  geom_point(shape = 16, size = 5, alpha = .5) +
+  labs(title = "Multidimensional Scaling of 4 Clusters:10 000 cases") +
+  scale_colour_discrete(labels = c("heavy", "internet", "medium", "light")) +
+  theme(
+    legend.title = element_blank(),
+        plot.title = element_text(size = 24),
+        panel.background = element_rect(fill = "white"),
+        axis.line = element_line(),
+        text = element_text(size = 18),
+        axis.text.x = element_text(size = 12))
+
+# send both to file for publication
+pdf(file = "scree_and_clusters.pdf", width = 20, height = 10, family = "Helvetica") # defaults to 7 x 7 inches
+grid.arrange(screeplot,mds_plot,
+             nrow = 1, ncol = 2
+             )
 dev.off()
 
 # predictions to test clusters...
@@ -209,37 +227,17 @@ boxplot_clusters <- function(set,type) {
   ggplot(set, aes_string("cluster", type, fill = "cluster")) +
     geom_boxplot() +
     guides(fill = FALSE) +
-    labs(title = type)
+    labs(title = type) +
+    theme(
+      axis.title = element_blank(),
+      plot.title = element_text(size = 20),
+      axis.text.x = element_text(size = 16)
+    )
   
 }
 
-
-# if necessary, rename levels for cluster to keep aligned with write-up:
-set_simple_print_std_c$cluster <- ifelse(set_simple_print_std_c$cluster == "1", "7", set_simple_print_std_c$cluster)
-set_simple_print_std_c$cluster <- ifelse(set_simple_print_std_c$cluster == "2", "9", set_simple_print_std_c$cluster)
-set_simple_print_std_c$cluster <- ifelse(set_simple_print_std_c$cluster == "3", "8", set_simple_print_std_c$cluster)
-set_simple_print_std_c$cluster <- ifelse(set_simple_print_std_c$cluster == "4", "6", set_simple_print_std_c$cluster)
-set_simple_print_std_c$cluster <- as.factor(as.numeric(set_simple_print_std_c$cluster) - 5)
-
-# set factor labels (NB double check levels)
-set_simple_print_std_c$age <- factor(set_simple_print_std_c$age, labels = c("15-24","25-44", "45-54","55+"), ordered = FALSE)
-set_simple_print_std_c$race <- factor(set_simple_print_std_c$race,labels = c("black", "coloured", "indian", "white"), ordered = FALSE)
-set_simple_print_std_c$edu <- factor(set_simple_print_std_c$edu, labels = c("<matric", "matric",">matric" ) ,ordered = FALSE)
-set_simple_print_std_c$lsm <- factor(set_simple_print_std_c$lsm, labels = c("LSM1-2", "LSM3-4", "LSM5-6", "LSM7-8", "LSM9-10"), ordered = FALSE)
-set_simple_print_std_c$sex <- factor(set_simple_print_std_c$sex, labels = c("male", "female"), ordered = FALSE)
-set_simple_print_std_c$hh_inc <- factor(set_simple_print_std_c$hh_inc, labels = c("<R5000","R5000-R10999","R11000-R19999","R20000+"), ordered = FALSE)
-set_simple_print_std_c$cluster <- factor(set_simple_print_std_c$cluster,  labels = c("heavy", "internet", "medium", "light"), ordered = FALSE)
-set_simple_print_std_c$year <- factor(set_simple_print_std_c$year, ordered = FALSE)
-
-
-# save it
-saveRDS(set_simple_print_std_c, "set_simple_print_std_c.rds")
-
-# read back
-set_simple_print_std_c <- readRDS("set_simple_print_std_c.rds")
-
-
-jpeg('typeBoxPlots_pooled.jpeg', quality = 100)
+# generate grid plot for publication
+pdf(file = 'typeBoxPlots_pooled.pdf', width = 15, height = 15, family = "Helvetica")
 grid.arrange(boxplot_clusters(set_simple_print_std_c, type = "all"),
              boxplot_clusters(set_simple_print_std_c, type = "newspapers"),
              boxplot_clusters(set_simple_print_std_c, type = "magazines"),
@@ -249,20 +247,16 @@ grid.arrange(boxplot_clusters(set_simple_print_std_c, type = "all"),
              ncol=3, nrow = 2)
 dev.off()
 
-# calculate percentages:
-
-table(set_simple_print_std_c$cluster)/nrow(set_simple_print_std_c)
-# make sense of demographics
-
-
+## make sense of demographics
 
 # size of each cluster
 ggplot(data = set_simple_print_std_c, aes(x = cluster, fill = cluster)) +
   geom_bar(stat = "count") +
   guides(fill = FALSE) 
 
-# demographics by cluster
+## demographics by cluster
 
+# function to draw bars by cluster
 bars_by_cluster <- function(set, category) { # category:one of race, edu, age, lsm, sex, hh_inc
   if(category == "race") {
     level = c("black", "coloured", "indian", "white")
@@ -278,7 +272,7 @@ bars_by_cluster <- function(set, category) { # category:one of race, edu, age, l
   }
   if(category == "lsm") {
     level = c("1-2", "3-4", "5-6", "7-8", "9-10")
-    title = "LSM"
+    title = "Living Standards Measure"
   }
   if(category == "sex") {
     level = c("male", "female")
@@ -295,8 +289,26 @@ bars_by_cluster <- function(set, category) { # category:one of race, edu, age, l
     labs(title = title) +
     guides(fill=guide_legend(title=NULL)) +
     scale_x_discrete(labels = c("heavy","internet","medium","light")) +
-    theme(legend.text = element_text(size = 8), legend.key.size = unit(0.3,"cm"))
+    theme(
+      legend.text = element_text(size = 12),
+      legend.key.size = unit(0.5,"cm"),
+      axis.title = element_blank(),
+      axis.text.x = element_text(size = 14),
+      axis.text.y = element_text(size = 12),
+      plot.title = element_text(size = 20)
+      )
 }
+
+# send grid of plots to file for publication
+pdf(file = 'typeDemog_pooled2.pdf', width = 15, height = 15, family = "Helvetica")
+grid.arrange(bars_by_cluster(set_simple_print_std_c, "sex"),
+             bars_by_cluster(set_simple_print_std_c,"age"),
+             bars_by_cluster(set_simple_print_std_c,"race"),
+             bars_by_cluster(set_simple_print_std_c,"edu"),
+             bars_by_cluster(set_simple_print_std_c,"hh_inc"),
+             bars_by_cluster(set_simple_print_std_c,"lsm"), nrow = 3, ncol = 2)
+dev.off()
+
 
 jpeg("typeDemog_pooled2.jpeg")
 grid.arrange(bars_by_cluster(set_simple_print_std_c, "sex"),
