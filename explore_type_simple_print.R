@@ -11,6 +11,8 @@ library(MASS)
 library(tidyr)
 library(emmeans)
 library(formula.tools)
+library(extrafont)
+library(stringr)
 
 # simple_print
 set02_simple_print <- readRDS("/Users/hans-peterbakker/Dropbox/Statistics/UCTDataScience/Thesis/amps_2002/set02_simple_print.rds")
@@ -309,16 +311,6 @@ grid.arrange(bars_by_cluster(set_simple_print_std_c, "sex"),
              bars_by_cluster(set_simple_print_std_c,"lsm"), nrow = 3, ncol = 2)
 dev.off()
 
-
-jpeg("typeDemog_pooled2.jpeg")
-grid.arrange(bars_by_cluster(set_simple_print_std_c, "sex"),
-             bars_by_cluster(set_simple_print_std_c,"age"),
-             bars_by_cluster(set_simple_print_std_c,"race"),
-             bars_by_cluster(set_simple_print_std_c,"edu"),
-             bars_by_cluster(set_simple_print_std_c,"hh_inc"),
-             bars_by_cluster(set_simple_print_std_c,"lsm"), nrow = 3, ncol = 2)
-dev.off()
-             
 # to get percent of sample by cluster
 table(set_simple_print_std_c$cluster)/nrow(set_simple_print_std_c)
 
@@ -328,7 +320,7 @@ cluster_by_year <- set_simple_print_std_c %>%
   count(cluster) %>%
   mutate(total = sum(n))
 
-jpeg('cluster_by_year.jpeg')
+pdf(file = 'cluster_by_year.pdf', width = 6, height = 5, family = "Helvetica")
 ggplot(cluster_by_year) +
   aes(x = year, y = n, fill = cluster, label = paste0(round(100*(n/total)),"%") )+
   geom_bar(stat = 'identity') +
@@ -336,7 +328,8 @@ ggplot(cluster_by_year) +
   labs(y = "count")
 dev.off()
 
-# consider some linear models full models, all interactions with year
+## for EMM
+# consider some linear models, all interactioning with year
 mod_radio <- lm(radio ~ 
                   age +
                   sex +
@@ -352,9 +345,6 @@ mod_radio <- lm(radio ~
                   year * race +
                   year * lsm,
                 data = set_simple_print_std_c)
-
-
-
 
 mod_tv <- lm(tv ~ 
                age +
@@ -387,6 +377,7 @@ mod_newspapers <- lm(newspapers ~
                        year * race +
                        year * lsm,
                      data = set_simple_print_std_c)
+
 mod_magazines <- lm(magazines ~ 
                       age +
                       sex +
@@ -402,6 +393,7 @@ mod_magazines <- lm(magazines ~
                       year * race +
                       year * lsm,
                     data = set_simple_print_std_c)
+
 mod_internet <- lm(internet ~ 
                      age +
                      sex +
@@ -418,13 +410,8 @@ mod_internet <- lm(internet ~
                      year * lsm,
                    data = set_simple_print_std_c)
 
-
-
-
-# trying to figure out why lsm equal and prop so close but otherwise not...(same with freeTV below)
-
+## here want to get a sense of why differences in the plots between equal and proportional occur:
 # create a database of proportions by category levels, ie also by year:
-library(formula.tools)
 proportions <- data.frame()
 for(i in c("age","sex", "edu", "hh_inc", "race", "lsm")) {
   
@@ -434,49 +421,25 @@ for(i in c("age","sex", "edu", "hh_inc", "race", "lsm")) {
                                     mutate(category = (paste0(i, ".", temp1[,2]))) %>%
                                     dplyr::select(year, category, proportion = Freq))
 }
-
-library(stringr)
+# developing frame for equals based on number of levels for reach category
 equal <- rep(0, nrow(proportions))
 equal[which(str_detect(proportions$category, "age|hh_inc|race"))] <- 1/4
 equal[which(str_detect(proportions$category, "sex"))] <- 1/2
 equal[which(str_detect(proportions$category, "edu"))] <- 1/3
 equal[which(str_detect(proportions$category, "lsm"))] <- 1/5
 
-strproportions$category
-# add column of equal proportions
+# add column of equal to those of proportions
 prop_equal <- proportions %>%
   mutate(equal = equal)
 
+# to get a sense of differences in plots, look at some coefficients
 View(sort(coef(mod_tv)))
 View(sort(coef(mod_radio)))
 View(sort(coef(mod_internet)))
 
-# setting up marginal means objects
+## creating dataset for plotting
 
-# creating dataset for plotting
-# # function:
-# fr_set_old <- function(model, spec) {
-#   
-#   # link marginal means package
-#   require(emmeans)
-#   
-#   # create emmeans object
-#   temp1 <- emmeans(model, specs = spec, by = "year")
-#   
-#   # create subsettable summary object
-#   temp2 <- summary(temp1)
-#   
-#   # create output set
-#   cbind.data.frame(category = temp2[[1]],
-#                    year = temp2[[2]],
-#                    mean = temp2[[3]],
-#                    upper = temp2[[7]],
-#                    lower = temp2[[6]])
-#   
-#   
-# }
-
-
+# function for plotting
 fr_set <- function(model, spec) {
   
   # link marginal means package
@@ -535,12 +498,14 @@ pool_means_internet <- rbind(fr_set(mod_internet, spec = "sex"),
                              fr_set(mod_internet, spec = "hh_inc"),
                              fr_set(mod_internet, spec = "lsm"))
 
+# save them to .RData object for later retrieval
 save(pool_means_internet,
      pool_means_magazines,
      pool_means_newspapers,
      pool_means_tv,
      pool_means_radio, file = "pool_means.RData")
 
+# retrieve when necessary
 load("pool_means.RData")
 
 # function for adding factors:
@@ -550,56 +515,69 @@ add_factor <- function(set, factor) {
 }
 
 # binding into one frame:
-
 one_frame <- rbind(add_factor(pool_means_radio, "radio"),
                    add_factor(pool_means_internet, "internet"),
                    add_factor(pool_means_magazines, "magazines"),
                    add_factor(pool_means_tv, "tv"),
                    add_factor(pool_means_newspapers, "newspapers"))
 
+# from wide to narrow for use in ggplots
 one_frame2 <- gather(one_frame, key = weights, value = mean, proportional, equal)
 
+# getting rid of confidence interval variables for now
 one_frame3 <- one_frame2[,-c(3,4,5,6)]
 
+# returning confidence intervals in order
 types_set <- one_frame3 %>%
   mutate(upper = c(one_frame$prop.upper, one_frame$equal.upper)) %>%
   mutate(lower = c(one_frame$prop.lower, one_frame$equal.lower))
 
-# trying all plots here.
-
+## Having a look at plot of all in one:
 # changing the dataset to consider only "proportional" and only "mean" values and then go wide with factor again
 types_wide <- types_set %>%
   filter(weights == "proportional") %>%
   dplyr::select(category, year, factor, mean) %>%
   spread(key = factor, value = mean)
 
-# defining a function
-
-
+# defining a function for plotting all
 all_plots <- function(data, title = "All Media Types") {
-  ggplot(data = data, title = title) +
+  ggplot(data = data) +
     geom_line(aes(year, newspapers, group = category, colour = "newspaper")) +
     geom_line(aes(year, magazines, group = category, colour = "magazine")) +
     geom_line(aes(year, radio, group = category, colour = "radio")) +
     geom_line(aes(year, tv, group = category, colour = "tv")) +
     geom_line(aes(year, internet, group = category, colour = "internet")) +
     # geom_line(aes(year, alls, group = category, colour = "all")) +
-    scale_colour_discrete(name="Media") +
+    # scale_colour_discrete(name="Media") +
     facet_grid(. ~ category) +
-    theme(axis.text.x = element_text(size = 6)) +
-    labs(y = "engagement", title = title)
-  
+    theme(axis.text.x = element_text(size = 8),
+          axis.text.y = element_text(size = 8),
+          axis.title = element_blank(),
+          plot.title = element_blank(),
+          legend.title = element_blank(),
+          legend.text = element_text(size = 14),
+          legend.key = element_rect(size = 5),
+          strip.text = element_text(size = 10)) +
+    # labs(y = "engagement", title = title) +
+    scale_x_discrete(labels = c("'02","'08","'10","'12", "'14")) +
+    coord_cartesian(ylim = c(-1, 1.2))
 }
 
+# here not going to do wraps... just two levels of plots
 vector_row1 <- c("male", "female","15-24","25-44", "45-54","55+","black", "coloured", "indian", "white")
 vector_row2 <- c("<matric", "matric",">matric", "<R5000","R5000-R10999","R11000-R19999","R20000+", "LSM1-2", "LSM3-4", "LSM5-6", "LSM7-8", "LSM9-10")
 p_up <- all_plots(types_wide[which(types_wide$category %in% vector_row1),])
 p_down <- all_plots(types_wide[which(types_wide$category %in% vector_row2),])
 
+# plotting them all to have a look
 all_plots(types_wide)
 
+#splitting into two
+pdf(file = "all_emm.pdf", width = 17, height = 12, family = "Helvetica") # defaults to 7 x 7 inches
 grid.arrange(p_up, p_down, nrow = 2)
+dev.off()
 
+## plotting EMMs
 # function for plotting fitted models
 plot_type_wraps <- function(dataset, type) { # factor: one of...
   
@@ -638,7 +616,7 @@ plot_type_wraps <- function(dataset, type) { # factor: one of...
     labs(x = "years (2002 - 2014)", y = "engagement")
 }
 
-# send plots to files
+# send plots to files (distorted due to need for higher resolution in publication)
 pdf(file = "radio_emm.pdf", width = 12, height = 17, family = "Helvetica") # defaults to 7 x 7 inches
 plot_type_wraps(types_set, "radio")
 dev.off()
@@ -659,204 +637,4 @@ pdf(file = "internet_emm.pdf", width = 12, height = 17, family = "Helvetica") # 
 plot_type_wraps(types_set, "internet")
 dev.off()
 
-
-# 
-# 
-# # print plots to files
-# jpeg("radio_emm.jpeg", res = 300)
-# plot_types_wraps(types_set, "radio")
-# dev.off()
-# 
-# jpeg("newspapers_emm.jpeg", res =300)
-# plot_types_wraps(types_set, "newspapers")
-# dev.off()
-# 
-# jpeg("magazines_emm.jpeg", res = 300)
-# plot_types_wraps(types_set, "magazines")
-# dev.off()
-# 
-# jpeg("tv_emm.jpeg", res = 300)
-# plot_types_wraps(types_set, "tv")
-# dev.off()
-# 
-# jpeg("internet_emm.jpeg", res = 300)
-# plot_types_wraps(types_set, "internet")
-# dev.off()
-
-# PREVIOUS ATTEMPTS
-# # function for plotting fitted models
-# plot_types <- function(dataset, type) { # factor: one of...
-#   
-#   # making sure I have the packages
-#   require(tidyverse)
-#   require(gridExtra)
-#   
-#   # define upper middele and lower plots
-#   row1 <- c("male", "female","15-24","25-44", "45-54","55+")
-#   row2 <- c("black", "coloured", "indian", "white", "<matric", "matric",">matric")
-#   row3 <- c( "<R5000","R5000-R10999","R11000-R19999","R20000+", "LSM1-2", "LSM3-4", "LSM5-6", "LSM7-8", "LSM9-10")
-#   
-#   
-#   # subset the data by factor
-#   factor_data <- dataset %>% filter(factor == type)
-#   
-#   # row one plot
-#   plot_row1 <- ggplot(data = factor_data[which(factor_data$category %in% row1),], aes(x = year, y = mean, group = interaction(category,weights), col = weights)) +
-#     geom_line(size = 0.3) +
-#     facet_grid(.~ category) +
-#     geom_errorbar(aes(ymax = upper, ymin = lower, colour = weights), size = 0.2, width = 0.3, alpha = 1) +
-#     theme(axis.text.x = element_text(size = 3, angle = 45 ),
-#           axis.title.x = element_blank(),
-#           axis.text.y = element_text(size = 3),
-#           strip.text.x = element_text(size = 4)) +
-#     scale_x_discrete(labels = c("'02","'08","'10","'12", "'14")) +
-#     coord_cartesian(ylim = c(-1, 1.2)) +
-#     labs(y = "", size = 2, x = "") +
-#     theme(legend.position = "bottom")
-#   
-#   # row two plot
-#   plot_row2 <-  ggplot(data = factor_data[which(factor_data$category %in% row2),], aes(x = year, y = mean, group = interaction(category,weights), col = weights)) +
-#     geom_line(size = 0.5) +
-#     facet_grid(.~ category) +
-#     geom_errorbar(aes(ymax = upper, ymin = lower, colour = weights), size = 0.3, width = 0.3, alpha = 1) +
-#     theme(axis.text.x = element_text(size = 6, angle = 45 ),
-#           axis.text.y = element_text(size = 6)) +
-#     scale_x_discrete(labels = c("'02","'08","'10","'12", "'14")) +
-#     coord_cartesian(ylim = c(-1, 1.2)) +
-#     labs(y = "engagement", size = 2, x = "")
-#   
-#   # row three plot
-#   plot_row3 <-  ggplot(data = factor_data[which(factor_data$category %in% row3),], aes(x = year, y = mean, group = interaction(category,weights), col = weights)) +
-#     geom_line(size = 0.5) +
-#     facet_grid(.~ category) +
-#     geom_errorbar(aes(ymax = upper, ymin = lower, colour = weights), size = 0.3, width = 0.3, alpha = 1) +
-#     theme(axis.text.x = element_text(size = 6, angle = 45 ),
-#           axis.text.y = element_text(size = 6),
-#           strip.text.x = element_text(size = 8)) +
-#     scale_x_discrete(labels = c("'02","'08","'10","'12", "'14")) +
-#     coord_cartesian(ylim = c(-1, 1.2)) +
-#     labs(y = "", size = 2)
-#   
-#   #extract legend
-#   ##https://github.com/hadley/ggplot2/wiki/Share-a-legend-between-two-ggplot2-graphs
-#   g_legend <- function(a.gplot) {
-#     tmp <- ggplot_gtable(ggplot_build(a.gplot))
-#     leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
-#     legend <- tmp$grobs[[leg]]
-#     return(legend)}
-#   
-#   mylegend<-g_legend(plot_row1)
-#   
-#   grid.arrange(arrangeGrob(plot_row1 + theme(legend.position="none"),
-#                            plot_row2 + theme(legend.position="none"),
-#                            plot_row3 + theme(legend.position = "none")),
-#                # top = paste0("Estimated Marginal Means: ", "'", type, "'"),
-#                mylegend,
-#                nrow=2,
-#                heights=c(10, 1))
-#   
-#   # coord_cartesian(ylim=c(-0.5, 0.5)) + 
-#   # scale_y_continuous(breaks=seq(-0.5, 0.5, 0.2))
-# }
-# 
-# 
-# # doing some plots:
-# vector_row1 <- c("male", "female","15-24","25-44", "45-54","55+","black", "coloured", "indian", "white")
-# vector_row2 <- c("<matric", "matric",">matric", "<R2500","R2500-R6999","R7000-R11999",">=R12000", "LSM1-2", "LSM3-4", "LSM5-6", "LSM7-8", "LSM9-10")
-# 
-# # function for plotting fitted models
-# plot_fitted <- function(data, medium) { # medium: one of: newspapers, magazines, radio, tv, internet
-#   
-#   if(medium == "newspapers") {
-#     a <- "means"
-#     c <- "upper"
-#     d <- "lower"
-#     e <- "engagement"
-#     f <- "Newspapers"
-#   }
-#   if(medium == "magazines") {
-#     a <- "means"
-#     c <- "upper"
-#     d <- "lower"
-#     e <- "engagement"
-#     f <- "Magazines"
-#   }
-#   if(medium == "tv") {
-#     a <- "means"
-#     c <- "upper"
-#     d <- "lower"
-#     e <- "engagement"
-#     f <- "TV"
-#   }
-#   if(medium == "radio") {
-#     a <- "means"
-#     c <- "upper"
-#     d <- "lower"
-#     e <- "engagement"
-#     f <- "Radio"
-#   }
-#   if(medium == "internet") {
-#     a <- "means"
-#     c <- "upper"
-#     d <- "lower"
-#     e <- "engagement"
-#     f <- "Internet"
-#   }
-#   
-#   #plot
-#   ggplot(data = data, aes_string("year", a, group = "category")) +
-#     geom_point(color = "blue", size = 1, fill = "white", alpha = 0.5) +
-#     geom_line(size = 0.2) +
-#     facet_grid(.~ category) + theme(axis.text.x = element_text(size = 6)) +
-#     geom_errorbar(aes_string(ymax = c, ymin = d), size = 0.3, width = 0.4, alpha = 0.5) +
-#     labs(y = e, title = f) +
-#     coord_cartesian(ylim=c(-2, 0.8)) + 
-#     scale_y_continuous(breaks=seq(-2, 0.8, 0.5))
-#   
-# }
-# 
-# ## RADIO
-# pf_radio_up <- plot_fitted(data = pool_means_radio[which(pool_means_radio$category %in% vector_row1),],
-#                            medium = "radio")
-# pf_radio_down <- plot_fitted(data = pool_means_radio[which(pool_means_radio$category %in% vector_row2),],
-#                              medium = "radio")
-# jpeg("radio_pooled_means.jpeg", quality = 100)
-# grid.arrange(pf_radio_up, pf_radio_down, nrow = 2)
-# dev.off()
-# 
-# ## NEWSPAPERS
-# pf_newspapers_up <- plot_fitted(data = pool_means_newspapers[which(pool_means_newspapers$category %in% vector_row1),],
-#                                 medium = "newspapers")
-# pf_newspapers_down <- plot_fitted(data = pool_means_newspapers[which(pool_means_newspapers$category %in% vector_row2),],
-#                                   medium = "newspapers")
-# jpeg("newspapers_pooled_means.jpeg", quality = 100)
-# grid.arrange(pf_newspapers_up, pf_newspapers_down, nrow = 2)
-# dev.off()
-# 
-# ## MAGAZINES
-# pf_magazines_up <- plot_fitted(data = pool_means_magazines[which(pool_means_magazines$category %in% vector_row1),],
-#                                medium = "magazines")
-# pf_magazines_down <- plot_fitted(data = pool_means_magazines[which(pool_means_magazines$category %in% vector_row2),],
-#                                  medium = "magazines")
-# jpeg("magazines_pooled_means.jpeg", quality = 100)
-# grid.arrange(pf_magazines_up, pf_magazines_down, nrow = 2)
-# dev.off()
-# 
-# ## TV
-# pf_tv_up <- plot_fitted(data = pool_means_tv[which(pool_means_tv$category %in% vector_row1),],
-#                         medium = "tv")
-# pf_tv_down <- plot_fitted(data = pool_means_tv[which(pool_means_tv$category %in% vector_row2),],
-#                           medium = "tv")
-# jpeg("tv_pooled_means.jpeg", quality = 100)
-# grid.arrange(pf_tv_up, pf_tv_down, nrow = 2)
-# dev.off()
-# 
-# ## INTERNET
-# pf_internet_up <- plot_fitted(data = pool_means_internet[which(pool_means_internet$category %in% vector_row1),],
-#                               medium = "internet")
-# pf_internet_down <- plot_fitted(data = pool_means_internet[which(pool_means_internet$category %in% vector_row2),],
-#                                 medium = "internet")
-# jpeg("internet_pooled_means.jpeg", quality = 100)
-# grid.arrange(pf_internet_up, pf_internet_down, nrow = 2)
-# dev.off()
-# 
+# end for now...
