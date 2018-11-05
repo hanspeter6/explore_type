@@ -16,12 +16,10 @@ library(stringr)
 
 # simple_print
 set02_simple_print <- readRDS("/Users/hans-peterbakker/Dropbox/Statistics/UCTDataScience/Thesis/amps_2002/set02_simple_print.rds")
-# set05_simple_print <- readRDS("/Users/hans-peterbakker/Dropbox/Statistics/UCTDataScience/Thesis/amps_2005/set05_simple_print.rds")
 set08_simple_print <- readRDS("/Users/hans-peterbakker/Dropbox/Statistics/UCTDataScience/Thesis/amps_2008/set08_simple_print.rds")
 set10_simple_print <- readRDS("/Users/hans-peterbakker/Dropbox/Statistics/UCTDataScience/Thesis/amps_2010/set10_simple_print.rds")
 set12_simple_print <- readRDS("/Users/hans-peterbakker/Dropbox/Statistics/UCTDataScience/Thesis/amps_2012/set12_simple_print.rds")
 set14_simple_print <- readRDS("/Users/hans-peterbakker/Dropbox/Statistics/UCTDataScience/Thesis/amps_2014/set14_simple_print.rds")
-
 
 # function to add year as variable and get rid of vehicles
 add_year <- function(set, year) {
@@ -54,22 +52,24 @@ corrPlot <- function(set, title) {
              lab_size = 5,
              tl.cex = 14,
              show.legend = FALSE) +
-    theme(plot.title = element_text(size = 18))
+    theme(plot.title = element_text(size = 22),
+          text = element_text(size = 18),
+          axis.text = element_text(size = 12))
   
 }
 
 # running the plotting function
-c02 <- corrPlot(set02_simple_print[,c("newspapers","magazines","radio", "tv", "internet", "all")],
+c02 <- corrPlot(set02_simple_print[,c("newspapers","magazines","radio", "tv", "internet")],
                 title = "2002")
-c08 <- corrPlot(set08_simple_print[,c("newspapers","magazines","radio", "tv", "internet", "all")],
+c08 <- corrPlot(set08_simple_print[,c("newspapers","magazines","radio", "tv", "internet")],
                 title = "2008")
-c10 <- corrPlot(set10_simple_print[,c("newspapers","magazines","radio", "tv", "internet", "all")],
+c10 <- corrPlot(set10_simple_print[,c("newspapers","magazines","radio", "tv", "internet")],
                 title = "2010")
-c12 <- corrPlot(set12_simple_print[,c("newspapers","magazines","radio", "tv", "internet", "all")],
+c12 <- corrPlot(set12_simple_print[,c("newspapers","magazines","radio", "tv", "internet")],
                 title = "2012")
-c14 <- corrPlot(set14_simple_print[,c("newspapers","magazines","radio", "tv", "internet", "all")],
+c14 <- corrPlot(set14_simple_print[,c("newspapers","magazines","radio", "tv", "internet")],
                 title = "2014")
-c_all <- corrPlot(set_simple_print[,c("newspapers","magazines","radio", "tv", "internet", "all")],
+c_all <- corrPlot(set_simple_print[,c("newspapers","magazines","radio", "tv", "internet")],
                 title = "Full Dataset")
 
 # print to file for publication
@@ -80,7 +80,7 @@ grid.arrange(c02,
              c12,
              c14,
              c_all,
-             ncol = 3, nrow = 2)
+             ncol = 2, nrow = 3)
 dev.off()
 
 
@@ -144,9 +144,9 @@ set_simple_print_std_c <- readRDS("set_simple_print_std_c.rds")
 ## multi-dimensional scaling
 
 # # 1st create a subset of 10 000 cases to ensure easier running
-# set.seed(56)
-# sub_pooled <- set_simple_print_std_c[sample(nrow(set_simple_print_std_c), size = 10000),]
-# 
+set.seed(56)
+sub_pooled <- set_simple_print_std_c[sample(nrow(set_simple_print_std_c), size = 10000),]
+
 # # distance matrix and MDS
 # sub_pooled_dist <- dist(sub_pooled[,c("newspapers","magazines","radio", "tv", "internet", "all")])
 # 
@@ -165,10 +165,11 @@ screeplot <- ggplot(screedata, aes(x = k, y = wss)) +
   geom_line() + geom_point() +
   scale_x_continuous("k = number of clusters", labels = as.character(c(1,2,3,4,5,6,7,8,9,10)), breaks = c(1,2,3,4,5,6,7,8,9,10)) +
   labs(y = "total within sum of squares", title = "Within Sum of Squares for Different Values of k" ) +
-  theme(plot.title = element_text(size = 24),
-        text = element_text(size = 18),
+  theme(plot.title = element_text(size = 28),
+        axis.text.x = element_text(size = 20),
         axis.text.y = element_blank(),
-        axis.text.x = element_text(size = 12))
+        axis.title.y = element_text(size = 22),
+        axis.title.x = element_text(size = 22))
 
 # plot for clusters
 mdsForggplot <- cbind.data.frame(mds_pooled, col = as.factor((as.numeric(sub_pooled$cluster))))
@@ -179,17 +180,68 @@ mds_plot <- ggplot(mdsForggplot, aes(x = x, y = y, col = col)) +
   scale_colour_discrete(labels = c("heavy", "internet", "medium", "light")) +
   theme(
     legend.title = element_blank(),
-        plot.title = element_text(size = 24),
-        panel.background = element_rect(fill = "white"),
-        axis.line = element_line(),
-        text = element_text(size = 18),
-        axis.text.x = element_text(size = 12))
+    plot.title = element_text(size = 28),
+    panel.background = element_rect(fill = "white"),
+    axis.line = element_line(),
+    axis.text.x = element_text(size = 20),
+    axis.title = element_blank(),
+    axis.text.y = element_text(size = 20),
+    legend.text = element_text(size = 24),
+    # legend.key.size = unit(2, units = "pt"),
+    legend.key.size = unit(1.5, 'lines'))
 
 # send both to file for publication
 pdf(file = "scree_and_clusters.pdf", width = 20, height = 10, family = "Helvetica") # defaults to 7 x 7 inches
 grid.arrange(screeplot,mds_plot,
              nrow = 1, ncol = 2
              )
+dev.off()
+
+
+# for demographics doesn't matter what set I use. Will use the full set
+
+# consider proportions of levels by category by year
+# considering cluster by year...
+
+plot_demogs <- function(set, category, palette = c("Accent", "Spectral", "Paired", "Pastel2", "Set2","Set3"), title = category) {
+  by_year <- set %>%
+    group_by(year) %>%
+    count_(category) %>%
+    mutate(total = sum(n))
+  
+  label <- paste0(round(100*(by_year$n/by_year$total)),"%")
+  
+  ggplot(by_year) +
+    aes_string(x = "year", y = "n", fill = category, label = "label" ) +
+    geom_bar(stat = 'identity', width = 0.7) +
+    geom_text(position = position_stack(vjust = 0.5), size = 3) +
+    labs(y = "count", title = title) +
+    scale_fill_brewer(palette = palette) +
+    # guides(fill = guide_legend(title = NULL)) +
+    theme(plot.title = element_text(size = 22),
+          axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          axis.text.x = element_text(size = 14),
+          legend.text = element_text(size = 16),
+          legend.title = element_blank(),
+          legend.key.size = unit(0.5, "cm"),
+          panel.spacing = unit(0.02, "pt"),
+          text = element_text(size = 14),
+          legend.spacing.x = unit(0.2, 'cm'),
+          axis.line = element_line()
+          
+    )
+}
+
+d1 <- plot_demogs(set_simple_print_std_c, category = "sex", palette = "Accent", title = "Gender")
+d2 <- plot_demogs(set_simple_print_std_c, category = "age", palette = "Spectral", title = "Age Groups")
+d3 <- plot_demogs(set_simple_print_std_c, category = "race", palette = "Paired", title = "Population Groups")
+d4 <- plot_demogs(set_simple_print_std_c, category = "edu", palette = "Pastel2", title = "Education")
+d5 <- plot_demogs(set_simple_print_std_c, category = "hh_inc", palette = "Set2", title = "Household Income")
+d6 <- plot_demogs(set_simple_print_std_c, category = "lsm", palette = "Set3", title = "Living Standards Measure")
+
+pdf(file = "demogs_all.pdf", width = 17, height = 12, family = "Helvetica") # defaults to 7 x 7 inches
+grid.arrange(d1,d2,d3,d4,d5,d6, nrow = 3, ncol = 2)
 dev.off()
 
 # predictions to test clusters...
@@ -578,34 +630,42 @@ grid.arrange(p_up, p_down, nrow = 2)
 dev.off()
 
 ## plotting EMMs
+
 # function for plotting fitted models
-plot_type_wraps <- function(dataset, type) { # factor: one of...
+plot_type_grid <- function(dataset, type) { # factor: one of...
   
   # making sure I have the packages
   require(tidyverse)
   require(gridExtra)
   require(ggplot2)
+  require(ggpubr)
+  library(grid)
   
   # subset the data by factor
   factor_data <- dataset %>% filter(factor == type)
   
-  # facet plot
-  ggplot(data = factor_data, aes(x = year, y = mean, group = interaction(category,weights), col = weights)) +
+  # define rows
+  row1 <- c("male", "female","15-24","25-44", "45-54","55+")
+  row2 <- c("black", "coloured", "indian", "white", "<matric", "matric",">matric")
+  row3 <- c("<R5000","R5000-R10999","R11000-R19999","R20000+", "LSM1-2", "LSM3-4", "LSM5-6", "LSM7-8", "LSM9-10")
+  
+  # row1 plots:
+  g1 <- ggplot(data = factor_data[which(factor_data$category %in% row1),], aes(x = year, y = mean, group = interaction(category,weights), col = weights)) +
     geom_line(size = 0.8) +
-    facet_wrap(.~ category, ncol = 6) +
+    facet_grid(.~ category) +
     geom_errorbar(aes(ymax = upper, ymin = lower, colour = weights), size = 0.6, width = 0.2, alpha = 0.8) +
-    theme(axis.text.x = element_text(size = 12, angle = 45 ),
+    theme(axis.text.x = element_text(size = 14),
           axis.text.y = element_text(size = 12),
-          strip.text = element_text(size = 16, margin = ggplot2::margin(0,0,0,0, unit = "cm")),
+          strip.text = element_text(size = 15),
           axis.title.y = element_text(size = 22),
-          axis.title.x = element_text(size = 22),
+          axis.title.x = element_blank(),
           axis.ticks = element_line(size = 1),
           plot.margin = ggplot2::margin(0.5,0.5,0.5,0.5, unit = 'cm'),
           axis.ticks.length = unit(0.2, "cm"),
           panel.spacing = unit(5, 'pt'),
           panel.grid.minor = element_line(size = 0.5),
           panel.grid.major = element_line(size = 0.8),
-          legend.position = c(0.85,0.07),
+          legend.position = "bottom",
           legend.text = element_text(size = 16, margin = ggplot2::margin(0,0,0,0, unit = "cm")),
           legend.title = element_text(size = 20),
           legend.key.height = unit(2, "cm"),
@@ -613,28 +673,95 @@ plot_type_wraps <- function(dataset, type) { # factor: one of...
     ) +
     scale_x_discrete(labels = c("'02","'08","'10","'12", "'14")) +
     coord_cartesian(ylim = c(-1, 1.2)) +
-    labs(x = "years (2002 - 2014)", y = "engagement")
+    labs( y = "engagement")
+  
+  # change inter-panel gaps to separate demographic categories
+  gt1 = ggplot_gtable(ggplot_build(g1))
+  gt1$widths[8] = 4*gt1$widths[8]
+  
+  # row2 plots:
+  g2 <- ggplot(data = factor_data[which(factor_data$category %in% row2),], aes(x = year, y = mean, group = interaction(category,weights), col = weights)) +
+    geom_line(size = 0.8) +
+    facet_grid(.~ category) +
+    geom_errorbar(aes(ymax = upper, ymin = lower, colour = weights), size = 0.6, width = 0.2, alpha = 0.8) +
+    theme(axis.text.x = element_text(size = 14, angle = 45),
+          axis.text.y = element_text(size = 12),
+          strip.text = element_text(size = 15),
+          axis.title.y = element_text(size = 22),
+          axis.title.x = element_blank(),
+          axis.ticks = element_line(size = 1),
+          plot.margin = ggplot2::margin(0.5,0.5,0.5,0.5, unit = 'cm'),
+          axis.ticks.length = unit(0.2, "cm"),
+          panel.spacing = unit(5, 'pt'),
+          panel.grid.minor = element_line(size = 0.5),
+          panel.grid.major = element_line(size = 0.8),
+          legend.position = "bottom",
+          legend.text = element_text(size = 16, margin = ggplot2::margin(0,0,0,0, unit = "cm")),
+          legend.title = element_text(size = 20),
+          legend.key.height = unit(2, "cm"),
+          legend.key.size = unit(2, "cm")
+    ) +
+    scale_x_discrete(labels = c("'02","'08","'10","'12", "'14")) +
+    coord_cartesian(ylim = c(-1, 1.2)) +
+    labs(y = "engagement")
+  
+  # change inter-panel gaps to separate demographic categories
+  gt2 = ggplot_gtable(ggplot_build(g2))
+  gt2$widths[12] = 4*gt2$widths[12]
+
+  # row3 plots:
+  g3 <- ggplot(data = factor_data[which(factor_data$category %in% row3),], aes(x = year, y = mean, group = interaction(category,weights), col = weights)) +
+    geom_line(size = 0.8) +
+    facet_grid(.~ category) +
+    geom_errorbar(aes(ymax = upper, ymin = lower, colour = weights), size = 0.6, width = 0.2, alpha = 0.8) +
+    theme(axis.text.x = element_text(size = 14, angle = 45),
+          axis.text.y = element_text(size = 12),
+          strip.text = element_text(size = 12),
+          axis.title.y = element_text(size = 22),
+          axis.title.x = element_blank(),
+          axis.ticks = element_line(size = 1),
+          plot.margin = ggplot2::margin(0.5,0.5,0.5,0.5, unit = 'cm'),
+          axis.ticks.length = unit(0.2, "cm"),
+          panel.spacing = unit(5, 'pt'),
+          panel.grid.minor = element_line(size = 0.5),
+          panel.grid.major = element_line(size = 0.8),
+          legend.position = "bottom",
+          legend.text = element_text(size = 16, margin = ggplot2::margin(0,0,0,0, unit = "cm")),
+          legend.title = element_text(size = 20),
+          legend.key.height = unit(2, "cm"),
+          legend.key.size = unit(2, "cm")
+    ) +
+    scale_x_discrete(labels = c("'02","'08","'10","'12", "'14")) +
+    coord_cartesian(ylim = c(-1, 1.2)) +
+    labs( y = "engagement" )
+  
+  # change inter-panel gaps to separate demographic categories
+  gt3 = ggplot_gtable(ggplot_build(g3))
+  gt3$widths[12] = 4*gt3$widths[12]
+  
+  # arrange in grid
+  grid.arrange(gt1,gt2,gt3, nrow = 3)
 }
 
 # send plots to files (distorted due to need for higher resolution in publication)
-pdf(file = "radio_emm.pdf", width = 12, height = 17, family = "Helvetica") # defaults to 7 x 7 inches
-plot_type_wraps(types_set, "radio")
+pdf(file = "radio_emm.pdf", width = 14, height = 20, family = "Helvetica", onefile = FALSE) # defaults to 7 x 7 inches
+plot_type_grid(types_set, "radio")
 dev.off()
 
-pdf(file = "newspapers_emm.pdf", width = 12, height = 17, family = "Helvetica") # defaults to 7 x 7 inches
-plot_type_wraps(types_set, "newspapers")
+pdf(file = "newspapers_emm.pdf", width = 14, height = 20, family = "Helvetica", onefile = FALSE) # defaults to 7 x 7 inches
+plot_type_grid(types_set, "newspapers")
 dev.off()
 
-pdf(file = "magazines_emm.pdf", width = 12, height = 17, family = "Helvetica") # defaults to 7 x 7 inches
-plot_type_wraps(types_set, "magazines")
+pdf(file = "magazines_emm.pdf", width = 14, height = 20, family = "Helvetica", onefile = FALSE) # defaults to 7 x 7 inches
+plot_type_grid(types_set, "magazines")
 dev.off()
 
-pdf(file = "tv_emm.pdf", width = 12, height = 17, family = "Helvetica") # defaults to 7 x 7 inches
-plot_type_wraps(types_set, "tv")
+pdf(file = "tv_emm.pdf", width = 14, height = 20, family = "Helvetica", onefile = FALSE) # defaults to 7 x 7 inches
+plot_type_grid(types_set, "tv")
 dev.off()
 
-pdf(file = "internet_emm.pdf", width = 12, height = 17, family = "Helvetica") # defaults to 7 x 7 inches
-plot_type_wraps(types_set, "internet")
+pdf(file = "internet_emm.pdf", width = 14, height = 20, family = "Helvetica", onefile = FALSE) # defaults to 7 x 7 inches
+plot_type_grid(types_set, "internet")
 dev.off()
 
 # end for now...
